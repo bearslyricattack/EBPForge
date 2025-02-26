@@ -14,7 +14,7 @@ func LoadXDPProgram(bpfObjectPath, interfaceName string) (*link.Link, error) {
 	if err != nil {
 		return nil, fmt.Errorf("加载eBPF对象文件失败: %w", err)
 	}
-
+	fmt.Println(spec)
 	// 加载eBPF集合
 	coll, err := ebpf.NewCollection(spec)
 	if err != nil {
