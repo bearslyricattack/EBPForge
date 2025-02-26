@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package ebpfloader;
+
+option go_package = "github.com/yourusername/ebpf-loader/proto";
+
+service EbpfLoader {
+  // Load takes C source code and returns the load result
+  rpc Load(LoadRequest) returns (LoadResponse) {}
+}
+
+// LoadRequest contains the C source code to compile and load
+message LoadRequest {
+  string source_code = 1;
+}
+
+// LoadResponse contains the result of the loading operation
+message LoadResponse {
+  bool success = 1;
+  string message = 2;
+  string error = 3;
+  string program_id = 4; // Identifier for the loaded program
+}
