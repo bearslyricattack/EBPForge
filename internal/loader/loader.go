@@ -22,6 +22,7 @@ func LoadXDPProgram(bpfObjectPath, interfaceName string) (*link.Link, error) {
 	}
 	defer coll.Close()
 
+	fmt.Println(coll)
 	// 获取XDP程序
 	xdpProg, ok := coll.Programs["xdp_prog"]
 	if !ok {
