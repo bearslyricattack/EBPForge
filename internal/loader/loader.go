@@ -16,7 +16,36 @@ func LoadXDPProgram(bpfObjectPath, interfaceName string) (*link.Link, error) {
 	if err != nil {
 		return nil, fmt.Errorf("加载eBPF对象文件失败: %w", err)
 	}
-	fmt.Println(spec)
+	// 输出解析的eBPF对象文件内容
+	fmt.Printf("成功加载eBPF对象文件: %s\n", bpfObjectPath)
+	fmt.Println("==== eBPF对象文件内容 ====")
+
+	// 输出所有程序
+	if len(spec.Programs) > 0 {
+		fmt.Println("\n程序列表:")
+		for name, prog := range spec.Programs {
+			fmt.Printf("  - 程序名: %s\n", name)
+			fmt.Printf("    类型: %s\n", prog.Type)
+			fmt.Printf("    许可证: %s\n", prog.License)
+			fmt.Printf("    指令数量: %d\n", len(prog.Instructions))
+
+			// 输出更详细的指令信息（可选择前10条指令）
+			if len(prog.Instructions) > 0 {
+				fmt.Println("    前10条指令预览:")
+				maxInstr := 10
+				if len(prog.Instructions) < maxInstr {
+					maxInstr = len(prog.Instructions)
+				}
+				for i := 0; i < maxInstr; i++ {
+					fmt.Printf("      %d: %v\n", i, prog.Instructions[i])
+				}
+			}
+			fmt.Println()
+		}
+	} else {
+		fmt.Println("没有找到程序")
+	}
+
 	// 加载eBPF集合
 	coll, err := ebpf.NewCollection(spec)
 	if err != nil {
