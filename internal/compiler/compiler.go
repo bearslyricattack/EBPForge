@@ -41,16 +41,15 @@ func (c *Compiler) Compile(sourceCode string) (string, error) {
 	// Compile with clang
 	cmd := exec.Command(
 		"clang",
-		"-g",             // Include debug information
-		"-O2",            // Optimization level 2
+		"-g",  // Include debug information
+		"-O2", // Optimization level 2
+		"-Wall",
 		"-target", "bpf", // Target BPF
 		"-c",          // Compile only, don't link
 		srcFile,       // Input source file
 		"-o", objFile, // Output object file
-		"-I", "/usr/include", // Include standard headers
-		"-I", "/usr/include/x86_64-linux-gnu", // 添加特定架构的头文件路径
-		"-I", "/usr/src/linux-headers-$(uname -r)/include", // Linux 内核头文件
-		"-I", "/usr/src/linux-headers-$(uname -r)/arch/x86/include", // 架构特定内核头文件
+		"-I", "/usr/include/$(uname -m)-linux-gnu", // 添加特定架构的头文件路径
+		"-D", "__TARGET_ARCH_x86",
 	)
 
 	output, err := cmd.CombinedOutput()
