@@ -9,6 +9,8 @@ import (
 
 // LoadXDPProgram 加载eBPF程序到指定网络接口的XDP挂载点
 func LoadXDPProgram(bpfObjectPath, interfaceName string) (*link.Link, error) {
+	fmt.Println(bpfObjectPath)
+	fmt.Println(interfaceName)
 	// 打开编译好的eBPF对象文件
 	spec, err := ebpf.LoadCollectionSpec(bpfObjectPath)
 	if err != nil {
