@@ -54,7 +54,7 @@ import (
 
 func main() {
 	// 编译好的 eBPF 对象文件路径
-	bpfObjectPath := "/path/to/your/compiled/bpf/program.o"
+	bpfObjectPath := "/home/sealos/wpy1/ebpf/EBPForge/eBPF/ebpf_map.o"
 
 	// 要挂载的内核函数名称
 	kernelFunction := "sys_execve"
