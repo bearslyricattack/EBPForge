@@ -6,6 +6,7 @@
 #include <linux/string.h>
 #include <linux/version.h>
 #include <linux/fs_struct.h>
+#include <gnu/stubs-32.h>
 
 #define TASK_COMM_LEN 16
 #define MAX_PATH_LEN 128
