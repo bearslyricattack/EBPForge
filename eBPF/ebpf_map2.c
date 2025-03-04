@@ -1,16 +1,9 @@
-// ebpf_kprobe.c
+// ebpf_map2.c
 #include <linux/bpf.h>
 #include <bpf/bpf_helpers.h>
 #include <linux/ptrace.h>
-#include <linux/sched.h>
-#include <linux/string.h>
-#include <linux/version.h>
-#include <linux/fs_struct.h>
-#include <gnu/stubs-32.h>
 
 #define TASK_COMM_LEN 16
-#define MAX_PATH_LEN 128
-#define MAX_ARGS_LEN 128
 
 // 定义进程执行信息的结构体
 struct exec_data {
@@ -20,8 +13,6 @@ struct exec_data {
     __u32 uid;               // 用户ID
     __u32 gid;               // 组ID
     char comm[TASK_COMM_LEN]; // 进程名
-    char filepath[MAX_PATH_LEN]; // 执行文件路径
-    char args[MAX_ARGS_LEN]; // 命令行参数
     __u64 count;             // 执行次数计数
 };
 
@@ -48,19 +39,11 @@ struct {
     __uint(value_size, sizeof(__u32));
 } events SEC(".maps");
 
-// 辅助函数：安全地获取字符串
-static __always_inline int bpf_probe_read_str_safe(void *dst, size_t size, const void *unsafe_ptr) {
-    int ret = bpf_probe_read_str(dst, size, unsafe_ptr);
-    if (ret < 0)
-        return 0;
-    return ret;
-}
-
 SEC("kprobe/sys_execve")
 int kprobe__sys_execve(struct pt_regs *ctx) {
     // 获取基本进程信息
-    __u32 pid = bpf_get_current_pid_tgid() >> 32;
-    __u32 tid = bpf_get_current_pid_tgid() & 0xFFFFFFFF;
+    __u64 pid_tgid = bpf_get_current_pid_tgid();
+    __u32 pid = pid_tgid >> 32;
     __u64 uid_gid = bpf_get_current_uid_gid();
     __u32 uid = uid_gid;
     __u32 gid = uid_gid >> 32;
@@ -75,34 +58,12 @@ int kprobe__sys_execve(struct pt_regs *ctx) {
     // 获取进程名
     bpf_get_current_comm(&data.comm, sizeof(data.comm));
 
-    // 获取父进程ID
-    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+    // 获取父进程ID (从任务结构中获取)
+    struct task_struct *task;
+    task = (struct task_struct *)bpf_get_current_task();
     if (task) {
-        struct task_struct *parent;
-        bpf_probe_read(&parent, sizeof(parent), &task->real_parent);
-        if (parent) {
-            __u64 ppid_tgid;
-            bpf_probe_read(&ppid_tgid, sizeof(ppid_tgid), &parent->tgid);
-            data.ppid = ppid_tgid;
-        }
-    }
-
-    // 尝试获取文件路径
-    char *filename;
-    bpf_probe_read(&filename, sizeof(filename), &PT_REGS_PARM1(ctx));
-    if (filename) {
-        bpf_probe_read_str_safe(data.filepath, sizeof(data.filepath), filename);
-    }
-
-    // 尝试获取参数
-    char **argv;
-    bpf_probe_read(&argv, sizeof(argv), &PT_REGS_PARM2(ctx));
-    if (argv) {
-        char *arg;
-        bpf_probe_read(&arg, sizeof(arg), &argv[0]);
-        if (arg) {
-            bpf_probe_read_str_safe(data.args, sizeof(data.args), arg);
-        }
+        // 尝试读取父进程ID
+        bpf_probe_read(&data.ppid, sizeof(data.ppid), &task->real_parent->tgid);
     }
 
     // 更新计数
