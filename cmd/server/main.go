@@ -44,40 +44,76 @@ package main
 
 import (
 	"fmt"
-	"github.com/bearslyricattack/EBPForge/eBPF"
-	"github.com/bearslyricattack/EBPForge/internal/compiler"
 	"github.com/bearslyricattack/EBPForge/internal/loader"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 )
 
 func main() {
-	// 创建编译器实例，使用系统临时目录
-	compiler := &compiler.Compiler{
-		TempDir: os.TempDir(),
-	}
-	fmt.Println("开始编译BPF程序...")
-	// 编译BPF程序
-	objFile, err := compiler.Compile(eBPF.SampleBPFProgram)
+	// 编译好的 eBPF 对象文件路径
+	bpfObjectPath := "/path/to/your/compiled/bpf/program.o"
+
+	// 要挂载的内核函数名称
+	kernelFunction := "sys_execve"
+
+	fmt.Println("开始加载 kprobe 程序...")
+
+	// 加载并附加 kprobe 程序
+	kprobeLink, err := loader.LoadKProbeProgram(bpfObjectPath, kernelFunction)
 	if err != nil {
-		fmt.Printf("编译失败: %v\n", err)
-		os.Exit(1)
+		log.Fatalf("加载 kprobe 程序失败: %v", err)
 	}
-	fmt.Printf("编译成功！\nBPF对象文件路径: %s\n", objFile)
-	fmt.Println("开始加载BPF程序...")
-	bpfObjectPath := objFile
-	interfaceName := "ens18"
-	xdpLink, err := loader.LoadXDPProgram(bpfObjectPath, interfaceName)
+	defer (*kprobeLink).Close()
+
+	log.Printf("kprobe 程序已成功加载并附加到内核函数 %s\n", kernelFunction)
+
+	// 获取 eBPF maps 以便读取数据
+	collection, err := loader.GetMapsReader(bpfObjectPath)
 	if err != nil {
-		log.Fatalf("加载XDP程序失败: %v", err)
+		log.Fatalf("获取 maps reader 失败: %v", err)
 	}
-	defer (*xdpLink).Close()
-	log.Printf("XDP程序已成功加载到接口 %s\n", interfaceName)
-	// 程序将保持运行状态，直到接收到终止信号
-	fmt.Println("按Ctrl+C终止程序...")
+	defer collection.Close()
+
+	// 获取 "syscall_counts" map
+	countsMap, ok := collection.Maps["syscall_counts"]
+	if !ok {
+		log.Fatalf("未找到名为 'syscall_counts' 的 map")
+	}
+
+	// 开始定期打印 map 内容
+	ticker := time.NewTicker(2 * time.Second)
+	go func() {
+		for range ticker.C {
+			// 读取 map 中的所有条目
+			var key uint32
+			var value uint64
+
+			entries := make(map[uint32]uint64)
+			iter := countsMap.Iterate()
+			for iter.Next(&key, &value) {
+				entries[key] = value
+			}
+
+			if len(entries) > 0 {
+				fmt.Println("\n进程 execve 调用次数:")
+				fmt.Println("PID\t调用次数")
+				fmt.Println("---\t--------")
+
+				for pid, count := range entries {
+					fmt.Printf("%d\t%d\n", pid, count)
+				}
+			}
+		}
+	}()
+
+	// 等待中断信号以终止程序
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	<-sig
+
+	ticker.Stop()
+	fmt.Println("\n程序终止")
 }
