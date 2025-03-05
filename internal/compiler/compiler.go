@@ -21,8 +21,9 @@ func NewCompiler() *Compiler {
 }
 
 func (c *Compiler) Compile(path string, name string) (string, error) {
-	// 使用提供的path作为工作目录
 
+	fmt.Printf("%s\n", path)
+	fmt.Printf("%s\n", name)
 	// 构造源文件和目标文件路径
 	srcFile := filepath.Join(path, name+".c")
 	objFile := filepath.Join(path, name+".o")
