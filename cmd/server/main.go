@@ -48,7 +48,6 @@ import (
 	"github.com/bearslyricattack/EBPForge/internal/loader"
 	"github.com/gin-gonic/gin"
 	"log"
-	"time"
 )
 
 var cp compiler.Compiler
@@ -87,21 +86,7 @@ func main() {
 
 	// 设置路由
 	r.GET("/load", loadHandler)
-	// 启动HTTP服务器，修改端口为9090
-	go func() {
-		fmt.Println("HTTP服务器正在启动，监听端口 :8082")
-		if err := r.Run(":8082"); err != nil {
-			log.Fatalf("HTTP服务器错误: %v", err)
-		}
-	}()
+	fmt.Println("HTTP服务器正在启动，监听端口 :8082")
+	r.Run(":8082")
 
-	// 可以添加一个简单的状态输出循环
-	go func() {
-		for {
-			fmt.Println("HTTP服务器正在运行...", time.Now().Format("2006-01-02 15:04:05"))
-			time.Sleep(30 * time.Second)
-		}
-	}()
-
-	fmt.Println("程序正在运行中，按 Ctrl+C 停止...")
 }
