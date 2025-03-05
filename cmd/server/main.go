@@ -45,6 +45,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/bearslyricattack/EBPForge/internal/compiler"
 	"github.com/bearslyricattack/EBPForge/internal/loader"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -60,8 +61,17 @@ import (
 )
 
 func main() {
+
+	c := compiler.NewCompiler()
+
+	res, err := c.Compile("/home/sealos/wpy1/ebpf/EBPForge/eBPF", "ebpf_map2.o")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(res)
+
 	// 编译好的 eBPF 对象文件路径
-	bpfObjectPath := "/home/sealos/wpy1/ebpf/EBPForge/eBPF/ebpf_map2.o"
+	bpfObjectPath := res
 
 	// 要挂载的内核函数名称
 	kernelFunction := "sys_execve"

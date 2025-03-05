@@ -2,7 +2,6 @@ package compiler
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -21,25 +20,14 @@ func NewCompiler() *Compiler {
 	}
 }
 
-// Compile compiles C source code to BPF object file
-func (c *Compiler) Compile(sourceCode string) (string, error) {
-	// Create temporary directory for compilation
-	tempDir, err := ioutil.TempDir(c.TempDir, "ebpf-compile-")
-	if err != nil {
-		return "", fmt.Errorf("failed to create temp directory: %v", err)
-	}
-	defer os.RemoveAll(tempDir)
+func (c *Compiler) Compile(path string, name string) (string, error) {
+	// 使用提供的path作为工作目录
 
-	// Write source code to file
-	srcFile := filepath.Join(tempDir, "program.c")
-	if err := ioutil.WriteFile(srcFile, []byte(sourceCode), 0644); err != nil {
-		return "", fmt.Errorf("failed to write source file: %v", err)
-	}
+	// 构造源文件和目标文件路径
+	srcFile := filepath.Join(path, name+".c")
+	objFile := filepath.Join(path, name+".o")
 
-	// Output object file
-	objFile := filepath.Join(tempDir, "program.o")
-
-	// 获取系统架构，等同于shell中的$(uname -m)
+	// 获取系统架构
 	archCmd := exec.Command("uname", "-m")
 	archBytes, err := archCmd.Output()
 	if err != nil {
@@ -69,23 +57,6 @@ func (c *Compiler) Compile(sourceCode string) (string, error) {
 		return "", fmt.Errorf("compilation failed: %v: %s", err, output)
 	}
 
-	// Read compiled object file
-	compiledObj, err := ioutil.ReadFile(objFile)
-	if err != nil {
-		return "", fmt.Errorf("failed to read compiled object file: %v", err)
-	}
-
-	// Create directory to store the object file
-	persistDir, err := ioutil.TempDir(c.TempDir, "ebpf-obj-")
-	if err != nil {
-		return "", fmt.Errorf("failed to create persist directory: %v", err)
-	}
-
-	// Save the object file to a more persistent location
-	persistObjFile := filepath.Join(persistDir, "program.o")
-	if err := ioutil.WriteFile(persistObjFile, compiledObj, 0644); err != nil {
-		return "", fmt.Errorf("failed to write persistent object file: %v", err)
-	}
-
-	return persistObjFile, nil
+	// 直接返回目标文件路径
+	return objFile, nil
 }
