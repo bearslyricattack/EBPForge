@@ -47,8 +47,12 @@ import (
 	"fmt"
 	"github.com/bearslyricattack/EBPForge/internal/loader"
 	"log"
+	"os"
 	"os/exec"
+	"os/signal"
 	"strings"
+	"syscall"
+	"time"
 )
 
 func main() {
@@ -70,30 +74,27 @@ func main() {
 
 	// maps 已固定，可以通过 BPF 文件系统访问
 	fmt.Println("Maps 已固定到 /sys/fs/bpf/sys_execve/ 目录")
+	// 创建一个 ticker 定时读取 map 数据
+	ticker := time.NewTicker(3 * time.Second)
+	defer ticker.Stop()
 
-	readMapUsingBpftool()
+	// 等待中断信号以终止程序
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 
-	//// 创建一个 ticker 定时读取 map 数据
-	//ticker := time.NewTicker(3 * time.Second)
-	//defer ticker.Stop()
-	//
-	//// 等待中断信号以终止程序
-	//sig := make(chan os.Signal, 1)
-	//signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
-	//
-	//fmt.Println("开始监控进程执行信息...")
-	//
-	//go func() {
-	//	for {
-	//		select {
-	//		case <-ticker.C:
-	//			// 使用 bpftool 读取 map
-	//			readMapUsingBpftool()
-	//		}
-	//	}
-	//}()
-	//
-	//<-sig
+	fmt.Println("开始监控进程执行信息...")
+
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				// 使用 bpftool 读取 map
+				readMapUsingBpftool()
+			}
+		}
+	}()
+
+	<-sig
 	fmt.Println("\n程序终止")
 }
 
@@ -117,14 +118,6 @@ func readMapUsingBpftool() {
 func processMapOutput(output string) {
 	fmt.Printf("%-20s %-10s %-10s\n", "进程名", "PID", "执行次数")
 	fmt.Println(strings.Repeat("-", 42))
-
-	// 按行分割输出
-	//lines := strings.Split(output, "\n")
-	//for _, line := range lines {
-	//	fmt.Println(line)
-	//	fmt.Println(strings.Repeat("-", 42))
-	//}
-
 	// 定义解析 JSON 的结构
 	type Entry struct {
 		Key   int `json:"key"`
