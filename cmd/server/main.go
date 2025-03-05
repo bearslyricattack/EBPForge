@@ -46,11 +46,18 @@ import (
 	"fmt"
 	"github.com/bearslyricattack/EBPForge/internal/compiler"
 	"github.com/bearslyricattack/EBPForge/internal/loader"
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/link"
 	"github.com/gin-gonic/gin"
 	"log"
 )
 
 var cp compiler.Compiler
+
+var (
+	kprobeLink *link.Link
+	collection *ebpf.Collection
+)
 
 // 加载eBPF程序的处理函数
 func loadHandler(c *gin.Context) {
@@ -72,16 +79,12 @@ func loadHandler(c *gin.Context) {
 	fmt.Println("开始加载 kprobe 程序...")
 
 	// 加载并附加 kprobe 程序，同时固定 maps
-	kprobeLink, collection, err := loader.LoadKProbeProgram(bpfObjectPath, kernelFunction, true)
+	kprobeLink, collection, err = loader.LoadKProbeProgram(bpfObjectPath, kernelFunction, true)
 	if err != nil {
 		log.Fatalf("加载 kprobe 程序失败: %v", err)
 	}
-	// 注意：根据需要可以取消下面的 defer 语句注释
-	defer (*kprobeLink).Close()
-	defer collection.Close()
 	// maps 已固定，可以通过 BPF 文件系统访问
 	fmt.Println("Maps 已固定到 /sys/fs/bpf/sys_execve/ 目录")
-
 }
 func main() {
 	// 创建Gin默认路由
@@ -92,4 +95,7 @@ func main() {
 	fmt.Println("HTTP服务器正在启动，监听端口 :8082")
 	r.Run(":8082")
 
+	// 注意：根据需要可以取消下面的 defer 语句注释
+	defer (*kprobeLink).Close()
+	defer collection.Close()
 }
