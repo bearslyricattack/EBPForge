@@ -50,6 +50,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -114,11 +115,8 @@ func readMapUsingBpftool() {
 	processMapOutput(string(output))
 }
 
-// 解析并格式化 bpftool 的输出
+// 解析并格式化 bpftool 的输出，按进程名称统计调用次数
 func processMapOutput(output string) {
-	fmt.Printf("%-20s %-10s %-10s\n", "进程名", "PID", "执行次数")
-	fmt.Println(strings.Repeat("-", 42))
-
 	// 清理输出，删除杂项字符
 	cleanOutput := strings.ReplaceAll(output, "------------------------------------------", "")
 
@@ -138,11 +136,84 @@ func processMapOutput(output string) {
 		return
 	}
 
-	// 显示结果
+	// 按进程名称统计调用次数
+	processStats := make(map[string]struct {
+		TotalCount int
+		Executions int
+		ProcessIDs []int
+	})
+
 	for _, entry := range entries {
-		fmt.Printf("%-20s %-10d %-10d\n", entry.Value.Comm, entry.Value.Pid, entry.Value.Count)
+		procName := entry.Value.Comm
+		stats := processStats[procName]
+		stats.TotalCount += entry.Value.Count
+		stats.Executions++
+		stats.ProcessIDs = append(stats.ProcessIDs, entry.Value.Pid)
+		processStats[procName] = stats
 	}
 
-	// 显示数据总数
-	fmt.Printf("\n共发现 %d 条进程记录\n", len(entries))
+	var statsList []ProcessStat
+
+	for name, stats := range processStats {
+		statsList = append(statsList, ProcessStat{
+			Name:       name,
+			TotalCount: stats.TotalCount,
+			Executions: stats.Executions,
+			ProcessIDs: stats.ProcessIDs,
+		})
+	}
+
+	// 按总调用次数降序排序
+	sort.Slice(statsList, func(i, j int) bool {
+		return statsList[i].TotalCount > statsList[j].TotalCount
+	})
+
+	// 显示统计结果
+	fmt.Printf("\n%-20s %-15s %-15s %-20s\n", "进程名", "总调用次数", "执行进程数", "PID列表(部分)")
+	fmt.Println(strings.Repeat("-", 75))
+
+	for _, stat := range statsList {
+		// 只显示前5个PID，如果超过5个则显示"等"
+		pidDisplay := ""
+		if len(stat.ProcessIDs) <= 5 {
+			for i, pid := range stat.ProcessIDs {
+				if i > 0 {
+					pidDisplay += ", "
+				}
+				pidDisplay += fmt.Sprintf("%d", pid)
+			}
+		} else {
+			for i := 0; i < 5; i++ {
+				if i > 0 {
+					pidDisplay += ", "
+				}
+				pidDisplay += fmt.Sprintf("%d", stat.ProcessIDs[i])
+			}
+			pidDisplay += fmt.Sprintf(" 等%d个", len(stat.ProcessIDs))
+		}
+
+		fmt.Printf("%-20s %-15d %-15d %-20s\n",
+			stat.Name, stat.TotalCount, stat.Executions, pidDisplay)
+	}
+
+	// 显示统计总数
+	fmt.Printf("\n共发现 %d 个不同进程，总调用次数: %d\n",
+		len(statsList), sumTotalCounts(statsList))
+}
+
+// 转换为切片以便排序
+type ProcessStat struct {
+	Name       string
+	TotalCount int
+	Executions int
+	ProcessIDs []int
+}
+
+// 计算总调用次数
+func sumTotalCounts(stats []ProcessStat) int {
+	total := 0
+	for _, stat := range stats {
+		total += stat.TotalCount
+	}
+	return total
 }
