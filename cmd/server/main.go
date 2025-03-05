@@ -118,8 +118,12 @@ func readMapUsingBpftool() {
 func processMapOutput(output string) {
 	fmt.Printf("%-20s %-10s %-10s\n", "进程名", "PID", "执行次数")
 	fmt.Println(strings.Repeat("-", 42))
-	// 定义解析 JSON 的结构
-	type Entry struct {
+
+	// 清理输出，删除杂项字符
+	cleanOutput := strings.ReplaceAll(output, "------------------------------------------", "")
+
+	// 尝试将输出作为JSON解析
+	var entries []struct {
 		Key   int `json:"key"`
 		Value struct {
 			Comm  string `json:"comm"`
@@ -128,14 +132,17 @@ func processMapOutput(output string) {
 		} `json:"value"`
 	}
 
-	// 解析 JSON 数组
-	var entries []Entry
-	err := json.Unmarshal([]byte(output), &entries)
+	err := json.Unmarshal([]byte(cleanOutput), &entries)
 	if err != nil {
-		fmt.Println("error:", err)
-	}
-	for _, entry := range entries {
-		fmt.Println(entry)
+		fmt.Printf("JSON解析错误: %v\n", err)
+		return
 	}
 
+	// 显示结果
+	for _, entry := range entries {
+		fmt.Printf("%-20s %-10d %-10d\n", entry.Value.Comm, entry.Value.Pid, entry.Value.Count)
+	}
+
+	// 显示数据总数
+	fmt.Printf("\n共发现 %d 条进程记录\n", len(entries))
 }
