@@ -46,15 +46,8 @@ import (
 	"fmt"
 	"github.com/bearslyricattack/EBPForge/internal/loader"
 	"log"
-	"os"
 	"os/exec"
-	"os/signal"
-	"regexp"
-	"sort"
-	"strconv"
 	"strings"
-	"syscall"
-	"time"
 )
 
 func main() {
@@ -77,27 +70,29 @@ func main() {
 	// maps 已固定，可以通过 BPF 文件系统访问
 	fmt.Println("Maps 已固定到 /sys/fs/bpf/sys_execve/ 目录")
 
-	// 创建一个 ticker 定时读取 map 数据
-	ticker := time.NewTicker(3 * time.Second)
-	defer ticker.Stop()
+	readMapUsingBpftool()
 
-	// 等待中断信号以终止程序
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
-
-	fmt.Println("开始监控进程执行信息...")
-
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				// 使用 bpftool 读取 map
-				readMapUsingBpftool()
-			}
-		}
-	}()
-
-	<-sig
+	//// 创建一个 ticker 定时读取 map 数据
+	//ticker := time.NewTicker(3 * time.Second)
+	//defer ticker.Stop()
+	//
+	//// 等待中断信号以终止程序
+	//sig := make(chan os.Signal, 1)
+	//signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+	//
+	//fmt.Println("开始监控进程执行信息...")
+	//
+	//go func() {
+	//	for {
+	//		select {
+	//		case <-ticker.C:
+	//			// 使用 bpftool 读取 map
+	//			readMapUsingBpftool()
+	//		}
+	//	}
+	//}()
+	//
+	//<-sig
 	fmt.Println("\n程序终止")
 }
 
@@ -112,7 +107,6 @@ func readMapUsingBpftool() {
 	fmt.Println(output)
 	if err != nil {
 		fmt.Printf("执行 bpftool 失败: %v\n", err)
-		fmt.Println(string(output))
 		return
 	}
 
@@ -129,72 +123,6 @@ func processMapOutput(output string) {
 	lines := strings.Split(output, "\n")
 	for _, line := range lines {
 		fmt.Println(line)
-	}
-
-	// 用于存储解析后的数据
-	type ProcessData struct {
-		Pid   uint32
-		Comm  string
-		Count uint64
-	}
-
-	var processes []ProcessData
-
-	// 解析每一行
-	for _, line := range lines {
-		// 查找包含 key 和 value 的行
-		if strings.Contains(line, "key:") && strings.Contains(line, "value:") {
-			// 解析 key (pid)
-			keyMatch := regexp.MustCompile(`key:\s+(\d+)`).FindStringSubmatch(line)
-			if len(keyMatch) < 2 {
-				continue
-			}
-
-			pid, err := strconv.ParseUint(keyMatch[1], 10, 32)
-			if err != nil {
-				continue
-			}
-
-			// 解析 comm (进程名)
-			// 假设格式为: value: { comm: <进程名>, ... }
-			commMatch := regexp.MustCompile(`comm:\s+(\S+)`).FindStringSubmatch(line)
-			if len(commMatch) < 2 {
-				continue
-			}
-			comm := commMatch[1]
-
-			// 解析 count (执行次数)
-			countMatch := regexp.MustCompile(`count:\s+(\d+)`).FindStringSubmatch(line)
-			if len(countMatch) < 2 {
-				continue
-			}
-
-			count, err := strconv.ParseUint(countMatch[1], 10, 64)
-			if err != nil {
-				continue
-			}
-
-			// 添加到进程列表
-			processes = append(processes, ProcessData{
-				Pid:   uint32(pid),
-				Comm:  comm,
-				Count: count,
-			})
-		}
-	}
-
-	// 按执行次数排序（从高到低）
-	sort.Slice(processes, func(i, j int) bool {
-		return processes[i].Count > processes[j].Count
-	})
-
-	// 显示排序后的进程信息
-	for _, proc := range processes {
-		fmt.Printf("%-20s %-10d %-10d\n", proc.Comm, proc.Pid, proc.Count)
-	}
-
-	// 如果没有进程信息
-	if len(processes) == 0 {
-		fmt.Println("暂无进程执行信息")
+		fmt.Println(strings.Repeat("-", 42))
 	}
 }
