@@ -48,10 +48,6 @@ import (
 	"github.com/bearslyricattack/EBPForge/internal/loader"
 	"github.com/gin-gonic/gin"
 	"log"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
 )
 
 var cp compiler.Compiler
@@ -90,25 +86,12 @@ func main() {
 
 	// 设置路由
 	r.GET("/load", loadHandler)
-
-	// 创建一个通道接收信号
-	sigChan := make(chan os.Signal, 1)
-	// 注册要监听的信号
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-
-	fmt.Println("程序正在运行中，按 Ctrl+C 停止...")
-
-	// 可以添加一个简单的状态输出循环
+	// 启动HTTP服务器，修改端口为9090
 	go func() {
-		for {
-			fmt.Println("eBPF 程序正在运行...", time.Now().Format("2006-01-02 15:04:05"))
-			time.Sleep(30 * time.Second)
+		fmt.Println("HTTP服务器正在启动，监听端口 :8082")
+		if err := r.Run(":8082"); err != nil {
+			log.Fatalf("HTTP服务器错误: %v", err)
 		}
 	}()
-	// 阻塞直到接收到信号
-	sig := <-sigChan
-	fmt.Printf("接收到信号: %v，正在关闭程序...\n", sig)
-	// 如果想在程序退出前手动清理资源，可以在这里添加清理代码
-	fmt.Println("正在清理资源...")
-	fmt.Println("程序已安全退出")
+	fmt.Println("程序正在运行中，按 Ctrl+C 停止...")
 }
