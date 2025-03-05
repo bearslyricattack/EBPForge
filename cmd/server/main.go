@@ -127,6 +127,9 @@ func processMapOutput(output string) {
 
 	// 按行分割输出
 	lines := strings.Split(output, "\n")
+	for _, line := range lines {
+		fmt.Println(line)
+	}
 
 	// 用于存储解析后的数据
 	type ProcessData struct {
