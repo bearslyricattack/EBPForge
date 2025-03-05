@@ -64,7 +64,7 @@ func main() {
 
 	c := compiler.NewCompiler()
 
-	res, err := c.Compile("/home/sealos/wpy1/ebpf/EBPForge/eBPF", "ebpf_map2.o")
+	res, err := c.Compile("/home/sealos/wpy1/ebpf/EBPForge/eBPF", "ebpf_map2")
 	if err != nil {
 		log.Fatal(err)
 	}
