@@ -55,7 +55,7 @@ var cp compiler.Compiler
 // 加载eBPF程序的处理函数
 func loadHandler(c *gin.Context) {
 	path := c.Query("path")
-	filename := c.Query("filename")
+	filename := c.Query("name")
 
 	res, err := cp.Compile(path, filename)
 	if err != nil {
