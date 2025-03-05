@@ -57,6 +57,9 @@ func loadHandler(c *gin.Context) {
 	path := c.Query("path")
 	filename := c.Query("name")
 
+	// 打印参数值进行调试
+	fmt.Printf("收到参数 - path: %s, filename: %s\n", path, filename)
+
 	res, err := cp.Compile(path, filename)
 	if err != nil {
 		log.Fatal(err)
