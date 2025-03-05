@@ -45,10 +45,13 @@ package main
 import (
 	"fmt"
 	"github.com/bearslyricattack/EBPForge/internal/loader"
-	"github.com/cilium/ebpf"
 	"log"
 	"os"
+	"os/exec"
 	"os/signal"
+	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -74,14 +77,8 @@ func main() {
 	// maps 已固定，可以通过 BPF 文件系统访问
 	fmt.Println("Maps 已固定到 /sys/fs/bpf/sys_execve/ 目录")
 
-	// 获取 eBPF map
-	procExecveMap, found := collection.Maps["proc_execve"]
-	if !found {
-		log.Fatalf("找不到 proc_execve map")
-	}
-
 	// 创建一个 ticker 定时读取 map 数据
-	ticker := time.NewTicker(2 * time.Second)
+	ticker := time.NewTicker(3 * time.Second)
 	defer ticker.Stop()
 
 	// 等待中断信号以终止程序
@@ -94,8 +91,8 @@ func main() {
 		for {
 			select {
 			case <-ticker.C:
-				// 读取并显示 map 内容
-				readProcExecveMap(procExecveMap)
+				// 使用 bpftool 读取 map
+				readMapUsingBpftool()
 			}
 		}
 	}()
@@ -104,37 +101,96 @@ func main() {
 	fmt.Println("\n程序终止")
 }
 
-// ProcInfo 定义与 eBPF 中相匹配的 Go 结构体
-type ProcInfo struct {
-	Comm  [16]byte // 进程名 (TASK_COMM_LEN)
-	Pid   uint32   // 进程ID
-	Count uint64   // 执行次数计数
+// 使用 bpftool 读取 map
+func readMapUsingBpftool() {
+	fmt.Println("\n当前进程执行信息:")
+
+	// 执行 bpftool 命令读取 map
+	cmd := exec.Command("bpftool", "map", "dump", "pinned", "/sys/fs/bpf/sys_execve/proc_execve")
+	output, err := cmd.CombinedOutput()
+
+	if err != nil {
+		fmt.Printf("执行 bpftool 失败: %v\n", err)
+		fmt.Println(string(output))
+		return
+	}
+
+	// 解析输出并格式化显示
+	processMapOutput(string(output))
 }
 
-// 读取并显示进程执行信息
-func readProcExecveMap(m *ebpf.Map) {
-	fmt.Println("\n当前进程执行信息:")
+// 解析并格式化 bpftool 的输出
+func processMapOutput(output string) {
 	fmt.Printf("%-20s %-10s %-10s\n", "进程名", "PID", "执行次数")
 	fmt.Println(strings.Repeat("-", 42))
 
-	// 创建迭代器
-	iter := m.Iterate()
+	// 按行分割输出
+	lines := strings.Split(output, "\n")
 
-	// 定义键值变量
-	var key uint32
-	var value ProcInfo
-
-	// 迭代所有条目
-	for iter.Next(&key, &value) {
-		// 将进程名从 [16]byte 转换为字符串并去除空字符
-		commStr := strings.TrimRight(string(value.Comm[:]), "\x00")
-
-		// 显示数据
-		fmt.Printf("%-20s %-10d %-10d\n", commStr, value.Pid, value.Count)
+	// 用于存储解析后的数据
+	type ProcessData struct {
+		Pid   uint32
+		Comm  string
+		Count uint64
 	}
 
-	// 检查迭代过程中是否有错误
-	if err := iter.Err(); err != nil {
-		fmt.Printf("迭代错误: %v\n", err)
+	var processes []ProcessData
+
+	// 解析每一行
+	for _, line := range lines {
+		// 查找包含 key 和 value 的行
+		if strings.Contains(line, "key:") && strings.Contains(line, "value:") {
+			// 解析 key (pid)
+			keyMatch := regexp.MustCompile(`key:\s+(\d+)`).FindStringSubmatch(line)
+			if len(keyMatch) < 2 {
+				continue
+			}
+
+			pid, err := strconv.ParseUint(keyMatch[1], 10, 32)
+			if err != nil {
+				continue
+			}
+
+			// 解析 comm (进程名)
+			// 假设格式为: value: { comm: <进程名>, ... }
+			commMatch := regexp.MustCompile(`comm:\s+(\S+)`).FindStringSubmatch(line)
+			if len(commMatch) < 2 {
+				continue
+			}
+			comm := commMatch[1]
+
+			// 解析 count (执行次数)
+			countMatch := regexp.MustCompile(`count:\s+(\d+)`).FindStringSubmatch(line)
+			if len(countMatch) < 2 {
+				continue
+			}
+
+			count, err := strconv.ParseUint(countMatch[1], 10, 64)
+			if err != nil {
+				continue
+			}
+
+			// 添加到进程列表
+			processes = append(processes, ProcessData{
+				Pid:   uint32(pid),
+				Comm:  comm,
+				Count: count,
+			})
+		}
+	}
+
+	// 按执行次数排序（从高到低）
+	sort.Slice(processes, func(i, j int) bool {
+		return processes[i].Count > processes[j].Count
+	})
+
+	// 显示排序后的进程信息
+	for _, proc := range processes {
+		fmt.Printf("%-20s %-10d %-10d\n", proc.Comm, proc.Pid, proc.Count)
+	}
+
+	// 如果没有进程信息
+	if len(processes) == 0 {
+		fmt.Println("暂无进程执行信息")
 	}
 }
