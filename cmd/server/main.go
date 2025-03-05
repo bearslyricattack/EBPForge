@@ -48,6 +48,7 @@ import (
 	"github.com/bearslyricattack/EBPForge/internal/loader"
 	"github.com/gin-gonic/gin"
 	"log"
+	"time"
 )
 
 var cp compiler.Compiler
@@ -93,5 +94,14 @@ func main() {
 			log.Fatalf("HTTP服务器错误: %v", err)
 		}
 	}()
+
+	// 可以添加一个简单的状态输出循环
+	go func() {
+		for {
+			fmt.Println("HTTP服务器正在运行...", time.Now().Format("2006-01-02 15:04:05"))
+			time.Sleep(30 * time.Second)
+		}
+	}()
+
 	fmt.Println("程序正在运行中，按 Ctrl+C 停止...")
 }
