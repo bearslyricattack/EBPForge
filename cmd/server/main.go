@@ -109,6 +109,7 @@ func readMapUsingBpftool() {
 	cmd := exec.Command("bpftool", "map", "dump", "pinned", "/sys/fs/bpf/sys_execve/proc_execve")
 	output, err := cmd.CombinedOutput()
 
+	fmt.Println(output)
 	if err != nil {
 		fmt.Printf("执行 bpftool 失败: %v\n", err)
 		fmt.Println(string(output))
