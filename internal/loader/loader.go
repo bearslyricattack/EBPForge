@@ -112,7 +112,6 @@ func LoadKProbeProgram(bpfObjectPath, fnName string, pinMaps bool) (*link.Link, 
 		// 固定所有maps
 		for mapName, m := range coll.Maps {
 			mapPath := filepath.Join(progDir, mapName)
-
 			// 如果已存在，先删除
 			if _, err := os.Stat(mapPath); err == nil {
 				if err := os.Remove(mapPath); err != nil {
@@ -121,14 +120,12 @@ func LoadKProbeProgram(bpfObjectPath, fnName string, pinMaps bool) (*link.Link, 
 					return nil, nil, fmt.Errorf("删除现有固定map失败: %w", err)
 				}
 			}
-
 			// 固定map
 			if err := m.Pin(mapPath); err != nil {
 				kprobeLink.Close()
 				coll.Close()
 				return nil, nil, fmt.Errorf("固定map '%s'失败: %w", mapName, err)
 			}
-
 			fmt.Printf("Map '%s' 已固定到: %s\n", mapName, mapPath)
 		}
 	}

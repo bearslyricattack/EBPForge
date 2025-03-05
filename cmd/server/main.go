@@ -46,6 +46,7 @@ import (
 	"fmt"
 	"github.com/bearslyricattack/EBPForge/internal/compiler"
 	"github.com/bearslyricattack/EBPForge/internal/loader"
+	"github.com/gin-gonic/gin"
 	"log"
 	"os"
 	"os/signal"
@@ -53,15 +54,18 @@ import (
 	"time"
 )
 
-func main() {
-	// 编译 eBPF 程序
-	c := compiler.NewCompiler()
-	res, err := c.Compile("/home/sealos/wpy1/ebpf/EBPForge/eBPF", "ebpf_map2")
+var cp compiler.Compiler
+
+// 加载eBPF程序的处理函数
+func loadHandler(c *gin.Context) {
+	path := c.Query("path")
+	filename := c.Query("filename")
+
+	res, err := cp.Compile(path, filename)
 	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Println("编译结果:", res)
-
 	// 编译好的 eBPF 对象文件路径
 	bpfObjectPath := res
 	// 要挂载的内核函数名称
@@ -73,13 +77,19 @@ func main() {
 	if err != nil {
 		log.Fatalf("加载 kprobe 程序失败: %v", err)
 	}
-
 	// 注意：根据需要可以取消下面的 defer 语句注释
-	// defer (*kprobeLink).Close()
-	// defer collection.Close()
-
+	defer (*kprobeLink).Close()
+	defer collection.Close()
 	// maps 已固定，可以通过 BPF 文件系统访问
 	fmt.Println("Maps 已固定到 /sys/fs/bpf/sys_execve/ 目录")
+
+}
+func main() {
+	// 创建Gin默认路由
+	r := gin.Default()
+
+	// 设置路由
+	r.GET("/load", loadHandler)
 
 	// 创建一个通道接收信号
 	sigChan := make(chan os.Signal, 1)
@@ -95,24 +105,10 @@ func main() {
 			time.Sleep(30 * time.Second)
 		}
 	}()
-
 	// 阻塞直到接收到信号
 	sig := <-sigChan
 	fmt.Printf("接收到信号: %v，正在关闭程序...\n", sig)
-
 	// 如果想在程序退出前手动清理资源，可以在这里添加清理代码
 	fmt.Println("正在清理资源...")
-
-	// 如果前面没有使用 defer，可以在这里显式关闭资源
-	if kprobeLink != nil {
-		(*kprobeLink).Close()
-		fmt.Println("已关闭 kprobe 链接")
-	}
-
-	if collection != nil {
-		collection.Close()
-		fmt.Println("已关闭 BPF 集合")
-	}
-
 	fmt.Println("程序已安全退出")
 }
