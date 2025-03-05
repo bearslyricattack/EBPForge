@@ -43,6 +43,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/bearslyricattack/EBPForge/internal/loader"
 	"log"
@@ -103,8 +104,6 @@ func readMapUsingBpftool() {
 	// 执行 bpftool 命令读取 map
 	cmd := exec.Command("bpftool", "map", "dump", "pinned", "/sys/fs/bpf/sys_execve/proc_execve")
 	output, err := cmd.CombinedOutput()
-
-	fmt.Println(output)
 	if err != nil {
 		fmt.Printf("执行 bpftool 失败: %v\n", err)
 		return
@@ -120,9 +119,30 @@ func processMapOutput(output string) {
 	fmt.Println(strings.Repeat("-", 42))
 
 	// 按行分割输出
-	lines := strings.Split(output, "\n")
-	for _, line := range lines {
-		fmt.Println(line)
-		fmt.Println(strings.Repeat("-", 42))
+	//lines := strings.Split(output, "\n")
+	//for _, line := range lines {
+	//	fmt.Println(line)
+	//	fmt.Println(strings.Repeat("-", 42))
+	//}
+
+	// 定义解析 JSON 的结构
+	type Entry struct {
+		Key   int `json:"key"`
+		Value struct {
+			Comm  string `json:"comm"`
+			Pid   int    `json:"pid"`
+			Count int    `json:"count"`
+		} `json:"value"`
 	}
+
+	// 解析 JSON 数组
+	var entries []Entry
+	err := json.Unmarshal([]byte(output), &entries)
+	if err != nil {
+		fmt.Println("error:", err)
+	}
+	for _, entry := range entries {
+		fmt.Println(entry)
+	}
+
 }
