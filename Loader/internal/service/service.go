@@ -47,7 +47,7 @@ package service
 //
 //	return &pb.LoadResponse{
 //		Success:   true,
-//		Message:   "Successfully compiled and loaded eBPF program",
+//		Message:   "Successfully compiled and loaded Example program",
 //		ProgramId: programID,
 //	}, nil
 //}

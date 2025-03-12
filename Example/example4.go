@@ -1,4 +1,4 @@
-package eBPF
+package Example
 
 // 简单的BPF程序示例
 const SampleBPFProgram = `

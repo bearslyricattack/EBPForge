@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// Compiler handles compilation of eBPF C source code
+// Compiler handles compilation of Example C source code
 type Compiler struct {
 	TempDir string
 }

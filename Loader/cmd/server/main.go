@@ -44,8 +44,8 @@ package main
 
 import (
 	"fmt"
-	"github.com/bearslyricattack/EBPForge/internal/compiler"
-	"github.com/bearslyricattack/EBPForge/internal/loader"
+	"github.com/bearslyricattack/EBPForge/Loader/internal/compiler"
+	"github.com/bearslyricattack/EBPForge/Loader/internal/loader"
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	"github.com/gin-gonic/gin"
@@ -72,7 +72,7 @@ func loadHandler(c *gin.Context) {
 		log.Fatal(err)
 	}
 	fmt.Println("编译结果:", res)
-	// 编译好的 eBPF 对象文件路径
+	// 编译好的 Example 对象文件路径
 	bpfObjectPath := res
 	// 要挂载的内核函数名称
 	kernelFunction := "sys_execve"
