@@ -56,71 +56,66 @@ type EbpfMapReconciler struct {
 func (r *EbpfMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
-	// 获取 EbpfMap 实例
+	// Retrieve the EbpfMap instance
 	var ebpfMap ebpfv1.EbpfMap
 	if err := r.Get(ctx, req.NamespacedName, &ebpfMap); err != nil {
 		if errors.IsNotFound(err) {
-			// 请求的对象不存在，可能已被删除
-			// 返回并且不重新排队
-			logger.Info("EbpfMap 资源未找到，忽略，因为对象可能已被删除")
+			// The requested object does not exist, possibly deleted
+			logger.Info("EbpfMap resource not found, ignoring since it may have been deleted")
 			return ctrl.Result{}, nil
 		}
-		// 读取对象时出错 - 重新排队请求
-		logger.Error(err, "获取 EbpfMap 失败")
+		// Error while retrieving the object - requeue the request
+		logger.Error(err, "Failed to fetch EbpfMap")
 		return ctrl.Result{}, err
 	}
 
-	// 通过检查状态或注解确认这是否是新的 CR
-	// 这是一种简化的方法 - 您可能需要使用更健壮的方法
-	// 比如使用终结器或适当的状态管理
-	if ebpfMap.Status.Conditions == nil || len(ebpfMap.Status.Conditions) == 0 {
-		logger.Info("检测到新的 EbpfMap CR，触发 curl 请求")
-		// 构建带有路径和名称参数的 URL
+	// Check if this is a new Custom Resource (CR)
+	if len(ebpfMap.Status.Conditions) == 0 {
+		logger.Info("New EbpfMap CR detected, triggering curl request")
+
+		// Construct URL with path and name parameters
 		baseURL := "http://192.168.0.53:8082/load"
-		path := ebpfMap.Spec.CodeLocation
-		name := ebpfMap.Spec.ProgramName
-		url := fmt.Sprintf("%s?path=%s&name=%s", baseURL, path, name)
-		// 发送 HTTP 请求
+		url := fmt.Sprintf("%s?path=%s&name=%s", baseURL, ebpfMap.Spec.CodeLocation, ebpfMap.Spec.ProgramName)
+
+		// Send HTTP request
 		resp, err := http.Get(url)
 		if err != nil {
-			logger.Error(err, "发送 HTTP 请求失败")
+			logger.Error(err, "Failed to send HTTP request")
 			return ctrl.Result{RequeueAfter: time.Minute}, err
 		}
 		defer resp.Body.Close()
 
-		// 读取响应体
+		// Read response body
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			logger.Error(err, "读取响应体失败")
+			logger.Error(err, "Failed to read response body")
 			return ctrl.Result{RequeueAfter: time.Minute}, err
 		}
 
-		// 检查响应状态
+		// Check response status
 		if resp.StatusCode != http.StatusOK {
-			logger.Error(nil, "服务器返回非 OK 响应",
-				"状态码", resp.StatusCode,
-				"响应体", string(body))
-			return ctrl.Result{RequeueAfter: time.Minute}, fmt.Errorf("非 OK 响应: %d", resp.StatusCode)
+			logger.Error(nil, "Server returned non-OK response",
+				"StatusCode", resp.StatusCode,
+				"Response", string(body))
+			return ctrl.Result{RequeueAfter: time.Minute}, fmt.Errorf("Non-OK response: %d", resp.StatusCode)
 		}
 
-		logger.Info("成功加载 Example 程序",
-			"状态码", resp.StatusCode,
-			"响应", string(body))
+		logger.Info("Successfully loaded eBPF program",
+			"StatusCode", resp.StatusCode,
+			"Response", string(body))
 
-		// 更新状态以表明程序已加载
-		// 这可以防止在后续协调中重新触发 curl
+		// Update status to indicate the program has been loaded
 		condition := metav1.Condition{
 			Type:               "Loaded",
 			Status:             metav1.ConditionTrue,
 			LastTransitionTime: metav1.Now(),
 			Reason:             "CurlSuccess",
-			Message:            "成功加载 Example 程序",
+			Message:            "Successfully loaded eBPF program",
 		}
-
 		meta.SetStatusCondition(&ebpfMap.Status.Conditions, condition)
 
 		if err := r.Status().Update(ctx, &ebpfMap); err != nil {
-			logger.Error(err, "更新 EbpfMap 状态失败")
+			logger.Error(err, "Failed to update EbpfMap status")
 			return ctrl.Result{}, err
 		}
 	}
