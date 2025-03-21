@@ -1,0 +1,48 @@
+#include <linux/bpf.h>
+#include <linux/ptrace.h>
+#include <linux/sched.h>
+#include <linux/in.h>
+#include <linux/net.h>
+#include <bpf/bpf_helpers.h>
+
+#define MAX_COMM_LEN 16
+
+struct ebpf_event {
+    __u64 timestamp;     // 时间戳 (ns)
+    __u32 pid;           // 进程 ID
+    __u32 tid;           // 线程 ID
+    __u32 uid;           // 用户 ID
+    __u32 gid;           // 组 ID
+    __u32 event_type;    // 事件类型 (0: syscall, 1: network, 2: file, etc.)
+    __u64 data1;         // 数据字段1 (用于存储文件描述符、IP等)
+    __u64 data2;         // 数据字段2
+    __u64 data3;         // 数据字段3
+    char comm[MAX_COMM_LEN];  // 进程名
+};
+
+// 定义 BPF Perf 事件 Map
+struct {
+    __uint(type, BPF_MAP_TYPE_PERF_EVENT_ARRAY);
+    __uint(max_entries, 1024);
+} event_map SEC(".maps");
+
+// eBPF 追踪 fork 事件
+SEC("tracepoint/syscalls/sys_enter_execve")
+int trace_execve(struct trace_event_raw_sys_enter *ctx) {
+    struct ebpf_event event = {};
+    event.timestamp = bpf_ktime_get_ns();
+    event.pid = bpf_get_current_pid_tgid() >> 32;
+    event.tid = bpf_get_current_pid_tgid() & 0xFFFFFFFF;
+    event.uid = bpf_get_current_uid_gid() >> 32;
+    event.gid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
+    event.event_type = 0; // 0 代表进程事件
+
+    // 获取进程名
+    bpf_get_current_comm(&event.comm, sizeof(event.comm));
+
+    // 发送数据到用户空间
+    bpf_perf_event_output(ctx, &event_map, BPF_F_CURRENT_CPU, &event, sizeof(event));
+    return 0;
+}
+
+char LICENSE[] SEC("license") = "GPL";
