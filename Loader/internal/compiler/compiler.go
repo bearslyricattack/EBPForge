@@ -69,13 +69,13 @@ func CompileFromCode(code string, filename string) (string, error) {
 	}
 
 	// 编译
-	_, err := Compile(targetDir, baseName)
+	output, err := Compile(targetDir, baseName)
 	if err != nil {
 		return "", err
 	}
 
 	// 返回创建的源文件路径
-	return srcFile, nil
+	return output, nil
 }
 
 // CompileCode 从代码字符串编译 eBPF 程序

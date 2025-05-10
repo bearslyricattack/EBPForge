@@ -3,6 +3,7 @@ package loader
 import (
 	"errors"
 	"fmt"
+	"github.com/bearslyricattack/EBPForge/pkg"
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	"net"
@@ -11,7 +12,23 @@ import (
 	"strings"
 )
 
-func LoadAndAttachBPF(bpfObjectPath string, args AttachArgs) (link.Link, *ebpf.Collection, error) {
+// AttachType 挂载类型定义
+type AttachType string
+
+const (
+	AttachKprobe     string = "kprobe"
+	AttachKretprobe  string = "kretprobe"
+	AttachTracepoint string = "tracepoint"
+	AttachUprobe     string = "uprobe"
+	AttachUretprobe  string = "uretprobe"
+	AttachXDP        string = "xdp"
+	AttachTC         string = "tc"
+	AttachSockFilter string = "sockfilter"
+	AttachCgroupSock string = "cgroup_sock"
+	AttachLSM        string = "lsm"
+)
+
+func LoadAndAttachBPF(bpfObjectPath string, args pkg.AttachArgs) (link.Link, *ebpf.Collection, error) {
 	// 1. 加载 eBPF 对象文件
 	spec, err := ebpf.LoadCollectionSpec(bpfObjectPath)
 	if err != nil {
@@ -25,7 +42,7 @@ func LoadAndAttachBPF(bpfObjectPath string, args AttachArgs) (link.Link, *ebpf.C
 	}
 
 	// 3. 查找程序
-	prog, ok := coll.Programs[args.ProgramName]
+	prog, ok := coll.Programs[args.Name]
 	if !ok {
 		// 输出可用程序名
 		availableProgs := make([]string, 0, len(coll.Programs))
@@ -33,12 +50,12 @@ func LoadAndAttachBPF(bpfObjectPath string, args AttachArgs) (link.Link, *ebpf.C
 			availableProgs = append(availableProgs, name)
 		}
 		coll.Close()
-		return nil, nil, fmt.Errorf("未找到程序 '%s'，可用: %v", args.ProgramName, availableProgs)
+		return nil, nil, fmt.Errorf("未找到程序 '%s'，可用: %v", args.Name, availableProgs)
 	}
 
 	var lnk link.Link
 
-	switch args.AttachType {
+	switch args.Ebpftype {
 	case AttachKprobe:
 		lnk, err = link.Kprobe(args.Target, prog, nil)
 	case AttachKretprobe:
@@ -73,7 +90,7 @@ func LoadAndAttachBPF(bpfObjectPath string, args AttachArgs) (link.Link, *ebpf.C
 		})
 	default:
 		coll.Close()
-		return nil, nil, fmt.Errorf("不支持的Attach类型: %s", args.AttachType)
+		return nil, nil, fmt.Errorf("不支持的Attach类型: %s", args.Ebpftype)
 	}
 
 	if err != nil {
@@ -81,51 +98,43 @@ func LoadAndAttachBPF(bpfObjectPath string, args AttachArgs) (link.Link, *ebpf.C
 		return nil, nil, fmt.Errorf("挂载失败: %w", err)
 	}
 
-	// 5. 固定 maps（可选）
-	if args.PinMaps {
-		// 确定固定路径
-		bpfFSPath := "/sys/fs/bpf"
-		if args.PinPath != "" {
-			bpfFSPath = args.PinPath
-		}
-
-		// 确保基础目录存在
-		if err := os.MkdirAll(bpfFSPath, 0755); err != nil {
-			lnk.Close()
-			coll.Close()
-			return nil, nil, fmt.Errorf("创建BPF文件系统路径失败: %w", err)
-		}
-
-		// 创建程序专用目录
-		progDir := filepath.Join(bpfFSPath, args.ProgramName)
-		if err := os.MkdirAll(progDir, 0755); err != nil {
-			lnk.Close()
-			coll.Close()
-			return nil, nil, fmt.Errorf("创建程序目录失败: %w", err)
-		}
-
-		// 固定每个map
-		for mapName, m := range coll.Maps {
-			mapPath := filepath.Join(progDir, mapName)
-			// 如果已存在，先移除
-			if _, err := os.Stat(mapPath); err == nil {
-				if err := os.Remove(mapPath); err != nil {
-					lnk.Close()
-					coll.Close()
-					return nil, nil, fmt.Errorf("移除已存在的map '%s'失败: %w", mapName, err)
-				}
-			}
-
-			// 固定map
-			if err := m.Pin(mapPath); err != nil {
-				lnk.Close()
-				coll.Close()
-				return nil, nil, fmt.Errorf("固定map '%s'失败: %w", mapName, err)
-			}
-			fmt.Printf("Map '%s' 已固定到: %s\n", mapName, mapPath)
-		}
+	// 确定固定路径
+	bpfFSPath := "/sys/fs/bpf"
+	// 确保基础目录存在
+	if err := os.MkdirAll(bpfFSPath, 0755); err != nil {
+		lnk.Close()
+		coll.Close()
+		return nil, nil, fmt.Errorf("创建BPF文件系统路径失败: %w", err)
 	}
 
+	// 创建程序专用目录
+	progDir := filepath.Join(bpfFSPath, args.Name)
+	if err := os.MkdirAll(progDir, 0755); err != nil {
+		lnk.Close()
+		coll.Close()
+		return nil, nil, fmt.Errorf("创建程序目录失败: %w", err)
+	}
+
+	// 固定每个map
+	for mapName, m := range coll.Maps {
+		mapPath := filepath.Join(progDir, mapName)
+		// 如果已存在，先移除
+		if _, err := os.Stat(mapPath); err == nil {
+			if err := os.Remove(mapPath); err != nil {
+				lnk.Close()
+				coll.Close()
+				return nil, nil, fmt.Errorf("移除已存在的map '%s'失败: %w", mapName, err)
+			}
+		}
+
+		// 固定map
+		if err := m.Pin(mapPath); err != nil {
+			lnk.Close()
+			coll.Close()
+			return nil, nil, fmt.Errorf("固定map '%s'失败: %w", mapName, err)
+		}
+		fmt.Printf("Map '%s' 已固定到: %s\n", mapName, mapPath)
+	}
 	return lnk, coll, nil
 }
 
