@@ -102,22 +102,25 @@ func getSystemArch() (string, error) {
 func buildCompileCommand(srcFile, objFile, arch string) *exec.Cmd {
 	// 确定架构相关的设置
 	archIncludePath := fmt.Sprintf("/usr/include/%s-linux-gnu", arch)
-	fmt.Println(archIncludePath)
+	fmt.Println("archIncludePath:", archIncludePath)
 	archDefine := fmt.Sprintf("__TARGET_ARCH_%s", getArchDefine(arch))
-	fmt.Println(archDefine)
+	fmt.Println("archDefine:", archDefine)
 	// 获取内核头文件路径
 	kernelHeaders := getKernelHeaders()
-	fmt.Println(kernelHeaders)
+	fmt.Println("kernelHeaders:", kernelHeaders)
 	// 构建编译命令
 	args := []string{
-		"-g",             // 包含调试信息
-		"-O2",            // 优化级别 2
-		"-Wall",          // 启用所有警告
-		"-target", "bpf", // 目标为 BPF
-		"-c", srcFile, // 输入源文件
-		"-o", objFile, // 输出对象文件
-		"-I", "/usr/include/$(uname -m)-linux-gnu", // 架构特定头文件
+		"-g",
+		"-O2",
+		"-Wall",
+		"-target", "bpf",
+		"-c", srcFile,
+		"-o", objFile,
+		"-I", archIncludePath, // 用变量
+		// 如有需要，可加更多 -I 路径
 	}
+	// 打印完整命令
+	fmt.Printf("构建的命令是：clang %s\n", strings.Join(args, " "))
 	return exec.Command("clang", args...)
 }
 
