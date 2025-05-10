@@ -22,4 +22,5 @@ type AttachArgs struct {
 	Ebpftype string //类型
 	Target   string //挂载点
 	Code     string //代码
+	Program  string
 }

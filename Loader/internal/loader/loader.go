@@ -47,7 +47,7 @@ func LoadAndAttachBPF(bpfObjectPath string, args pkg.AttachArgs) (link.Link, *eb
 	}
 
 	// 3. 查找程序
-	prog, ok := coll.Programs[args.Name]
+	prog, ok := coll.Programs[args.Program]
 	if !ok {
 		// 输出可用程序名
 		availableProgs := make([]string, 0, len(coll.Programs))

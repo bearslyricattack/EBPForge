@@ -38,7 +38,8 @@ func loadHandler(c *gin.Context) {
 	target := c.Query("target")
 	ebpftype := c.Query("type")
 	code := c.Query("code")
-	fmt.Println("name:", name, "target:", target, "type:", ebpftype, "code:", code)
+	program := c.Query("program")
+	fmt.Println("name:", name, "target:", target, "type:", ebpftype, "code:", code, "program:", program)
 	// 编译
 	path, err := compiler.CompileFromCode(code, name)
 	fmt.Println("编译成功！当前的文件位置是path:", path)
@@ -54,6 +55,7 @@ func loadHandler(c *gin.Context) {
 	args.Target = target
 	args.Ebpftype = ebpftype
 	args.Code = code
+	args.Program = program
 	_, collection, err = loader.LoadAndAttachBPF(path, args)
 	if err != nil {
 		c.JSON(500, gin.H{
