@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"net/http"
+	"net/url"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -79,10 +80,10 @@ func (r *EbpfMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 		for _, baseURL := range urls {
 			// Construct URL with all required parameters for each base URL
-			url := fmt.Sprintf("%s?name=%s&target=%s&type=%s&code=%s&program=%s", baseURL, ebpfMap.Spec.Name, ebpfMap.Spec.Target, ebpfMap.Spec.Type, ebpfMap.Spec.Code, ebpfMap.Spec.Program)
-			fmt.Println(url)
+			URL := fmt.Sprintf("%s?name=%s&target=%s&type=%s&code=%s&program=%s", baseURL, url.QueryEscape(ebpfMap.Spec.Name), url.QueryEscape(ebpfMap.Spec.Target), url.QueryEscape(ebpfMap.Spec.Type), url.QueryEscape(ebpfMap.Spec.Code), url.QueryEscape(ebpfMap.Spec.Program))
+			fmt.Println(URL)
 			// Send HTTP request
-			resp, err := http.Get(url)
+			resp, err := http.Get(URL)
 			if err != nil {
 				logger.Error(err, "Failed to send HTTP request to "+baseURL)
 				// Continue to next URL instead of returning immediately
