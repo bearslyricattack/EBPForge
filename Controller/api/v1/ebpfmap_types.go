@@ -28,17 +28,20 @@ type EbpfMapSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of EbpfMap. Edit ebpfmap_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	//ebpf代码的名称
+	Name string `json:"name,omitempty"`
 
-	// 代码的位置 - Location of the code
-	CodeLocation string `json:"codeLocation,omitempty"`
+	//ebpf 代码部署的挂载点
+	Target string `json:"target,omitempty"`
 
-	// 程序的名称 - Name of the program
-	ProgramName string `json:"programName,omitempty"`
+	//ebpf 代码的类型
+	Type string `json:"type,omitempty"`
 
-	// 程序的类型 - Type of the program
-	ProgramType string `json:"programType,omitempty"`
+	//ebpf 具体的代码
+	Code string `json:"code,omitempty"`
+
+	//ebpf 程序里写的名称
+	Program string `json:"program,omitempty"`
 }
 
 // EbpfMapStatus defines the observed state of EbpfMap.

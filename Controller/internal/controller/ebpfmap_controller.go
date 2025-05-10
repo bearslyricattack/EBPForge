@@ -23,10 +23,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"net/http"
-	"time"
-
 	"k8s.io/apimachinery/pkg/runtime"
+	"net/http"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -73,36 +71,37 @@ func (r *EbpfMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if len(ebpfMap.Status.Conditions) == 0 {
 		logger.Info("New EbpfMap CR detected, triggering curl request")
 
-		// Construct URL with path and name parameters
-		baseURL := "http://192.168.0.53:8082/load"
-		url := fmt.Sprintf("%s?path=%s&name=%s", baseURL, ebpfMap.Spec.CodeLocation, ebpfMap.Spec.ProgramName)
-
-		// Send HTTP request
-		resp, err := http.Get(url)
-		if err != nil {
-			logger.Error(err, "Failed to send HTTP request")
-			return ctrl.Result{RequeueAfter: time.Minute}, err
+		// Construct and call multiple URLs from a list
+		urls := []string{
+			"http://192.168.0.53:8082/load",
+			"http://192.168.10.63:8083/load",
+			// Add more URLs as needed
 		}
-		defer resp.Body.Close()
-
-		// Read response body
-		body, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			logger.Error(err, "Failed to read response body")
-			return ctrl.Result{RequeueAfter: time.Minute}, err
+		for _, baseURL := range urls {
+			// Construct URL with all required parameters for each base URL
+			url := fmt.Sprintf("%s?name=%s&target=%s&type=%s&code=%s&program=%s", baseURL, ebpfMap.Spec.Name, ebpfMap.Spec.Target, ebpfMap.Spec.Type, ebpfMap.Spec.Program)
+			// Send HTTP request
+			resp, err := http.Get(url)
+			if err != nil {
+				logger.Error(err, "Failed to send HTTP request to "+baseURL)
+				// Continue to next URL instead of returning immediately
+				continue
+			}
+			// Read response body
+			body, err := ioutil.ReadAll(resp.Body)
+			resp.Body.Close() // Use this instead of defer in a loop
+			if err != nil {
+				logger.Error(err, "Failed to read response body from "+baseURL)
+				continue
+			}
+			// Process the response
+			logger.Info("Received response", "baseURL", baseURL, "response", string(body))
+			// If you need to return after a successful request, you can do it here
+			if resp.StatusCode == http.StatusOK {
+				// Success case handling
+				return ctrl.Result{}, nil
+			}
 		}
-
-		// Check response status
-		if resp.StatusCode != http.StatusOK {
-			logger.Error(nil, "Server returned non-OK response",
-				"StatusCode", resp.StatusCode,
-				"Response", string(body))
-			return ctrl.Result{RequeueAfter: time.Minute}, fmt.Errorf("Non-OK response: %d", resp.StatusCode)
-		}
-
-		logger.Info("Successfully loaded eBPF program",
-			"StatusCode", resp.StatusCode,
-			"Response", string(body))
 
 		// Update status to indicate the program has been loaded
 		condition := metav1.Condition{
