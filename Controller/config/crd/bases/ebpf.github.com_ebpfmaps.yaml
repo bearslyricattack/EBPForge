@@ -39,18 +39,20 @@ spec:
           spec:
             description: EbpfMapSpec defines the desired state of EbpfMap.
             properties:
-              codeLocation:
-                description: 代码的位置 - Location of the code
+              code:
+                description: ebpf 具体的代码
                 type: string
-              foo:
-                description: Foo is an example field of EbpfMap. Edit ebpfmap_types.go
-                  to remove/update
+              name:
+                description: ebpf代码的名称
                 type: string
-              programName:
-                description: 程序的名称 - Name of the program
+              program:
+                description: ebpf 程序里写的名称
                 type: string
-              programType:
-                description: 程序的类型 - Type of the program
+              target:
+                description: ebpf 代码部署的挂载点
+                type: string
+              type:
+                description: ebpf 代码的类型
                 type: string
             type: object
           status:
@@ -66,7 +68,7 @@ spec:
                       description: |-
                         lastTransitionTime is the last time the condition transitioned from one status to another.
                         This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
-                      format: date-timer
+                      format: date-time
                       type: string
                     message:
                       description: |-
