@@ -80,6 +80,7 @@ func (r *EbpfMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		for _, baseURL := range urls {
 			// Construct URL with all required parameters for each base URL
 			url := fmt.Sprintf("%s?name=%s&target=%s&type=%s&code=%s&program=%s", baseURL, ebpfMap.Spec.Name, ebpfMap.Spec.Target, ebpfMap.Spec.Type, ebpfMap.Spec.Code, ebpfMap.Spec.Program)
+			fmt.Println(url)
 			// Send HTTP request
 			resp, err := http.Get(url)
 			if err != nil {
