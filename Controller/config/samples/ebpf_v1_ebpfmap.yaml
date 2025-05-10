@@ -1,0 +1,9 @@
+apiVersion: ebpf.github.com/v1
+kind: EbpfMap
+metadata:
+  labels:
+    app.kubernetes.io/name: ebpfcontroller
+    app.kubernetes.io/managed-by: kustomize
+  name: ebpfmap-sample
+spec:
+  # TODO(user): Add fields here
