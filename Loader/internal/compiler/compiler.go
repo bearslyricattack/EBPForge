@@ -15,8 +15,6 @@ import (
 func Compile(path string, name string) (string, error) {
 	// 确保文件名格式正确
 	baseName := strings.TrimSuffix(name, ".c")
-	baseName = strings.TrimSuffix(baseName, ".bpf")
-
 	srcFile := filepath.Join(path, baseName+".c")
 	objFile := filepath.Join(path, baseName+".o")
 
@@ -52,6 +50,39 @@ func Compile(path string, name string) (string, error) {
 // filename: 文件名（可选扩展名）
 // 返回：编译后的对象文件路径和可能的错误
 func CompileFromCode(code string, filename string) (string, error) {
+	// 使用固定目录
+	targetDir := "/home/sealos/EBPForge/Example"
+
+	// 确保目录存在
+	if err := os.MkdirAll(targetDir, 0755); err != nil {
+		return "", fmt.Errorf("确保目标目录存在失败: %w", err)
+	}
+
+	// 处理文件名
+	baseName := filepath.Base(filename)
+	baseName = strings.TrimSuffix(baseName, filepath.Ext(baseName))
+
+	// 创建源文件
+	srcFile := filepath.Join(targetDir, baseName+".c")
+	if err := os.WriteFile(srcFile, []byte(code), 0644); err != nil {
+		return "", fmt.Errorf("写入源文件失败: %w", err)
+	}
+
+	// 编译
+	_, err := Compile(targetDir, baseName)
+	if err != nil {
+		return "", err
+	}
+
+	// 返回创建的源文件路径
+	return srcFile, nil
+}
+
+// CompileCode 从代码字符串编译 eBPF 程序
+// code: eBPF 程序代码
+// filename: 文件名（可选扩展名）
+// 返回：编译后的对象文件路径和可能的错误
+func CompileCode(code string, filename string) (string, error) {
 	// 创建临时目录
 	tempDir, err := os.MkdirTemp("", "ebpf-compile-")
 	if err != nil {
