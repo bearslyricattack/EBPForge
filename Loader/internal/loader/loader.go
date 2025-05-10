@@ -6,6 +6,7 @@ import (
 	"github.com/bearslyricattack/EBPForge/pkg"
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
+	"github.com/cilium/ebpf/rlimit"
 	"net"
 	"os"
 	"path/filepath"
@@ -29,6 +30,10 @@ const (
 )
 
 func LoadAndAttachBPF(bpfObjectPath string, args pkg.AttachArgs) (link.Link, *ebpf.Collection, error) {
+	// 0. 解除 MEMLOCK 限制
+	if err := rlimit.RemoveMemlock(); err != nil {
+		return nil, nil, fmt.Errorf("解除MEMLOCK限制失败: %w", err)
+	}
 	// 1. 加载 eBPF 对象文件
 	spec, err := ebpf.LoadCollectionSpec(bpfObjectPath)
 	if err != nil {
