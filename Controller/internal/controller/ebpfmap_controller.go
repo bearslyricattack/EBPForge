@@ -68,60 +68,75 @@ func (r *EbpfMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	// Check if this is a new Custom Resource (CR)
-	if len(ebpfMap.Status.Conditions) == 0 {
-		logger.Info("New EbpfMap CR detected, triggering curl request")
-
-		// Construct and call multiple URLs from a list
-		urls := []string{
-			"http://192.168.0.53:8082/load",
-			"http://192.168.10.63:8082/load",
-			// Add more URLs as needed
-		}
-		for _, baseURL := range urls {
-			// Construct URL with all required parameters for each base URL
-			URL := fmt.Sprintf("%s?name=%s&target=%s&type=%s&code=%s&program=%s", baseURL, url.QueryEscape(ebpfMap.Spec.Name), url.QueryEscape(ebpfMap.Spec.Target), url.QueryEscape(ebpfMap.Spec.Type), url.QueryEscape(ebpfMap.Spec.Code), url.QueryEscape(ebpfMap.Spec.Program))
-			fmt.Println(URL)
-			// Send HTTP request
-			resp, err := http.Get(URL)
-			if err != nil {
-				logger.Error(err, "Failed to send HTTP request to "+baseURL)
-				// Continue to next URL instead of returning immediately
-				continue
-			}
-			// Read response body
-			body, err := ioutil.ReadAll(resp.Body)
-			resp.Body.Close() // Use this instead of defer in a loop
-			if err != nil {
-				logger.Error(err, "Failed to read response body from "+baseURL)
-				continue
-			}
-			// Process the response
-			logger.Info("Received response", "baseURL", baseURL, "response", string(body))
-			// If you need to return after a successful request, you can do it here
-			if resp.StatusCode == http.StatusOK {
-				// Success case handling
-				return ctrl.Result{}, nil
-			}
-		}
-
-		// Update status to indicate the program has been loaded
-		condition := metav1.Condition{
-			Type:               "Loaded",
-			Status:             metav1.ConditionTrue,
-			LastTransitionTime: metav1.Now(),
-			Reason:             "CurlSuccess",
-			Message:            "Successfully loaded eBPF program",
-		}
-		meta.SetStatusCondition(&ebpfMap.Status.Conditions, condition)
-
-		if err := r.Status().Update(ctx, &ebpfMap); err != nil {
-			logger.Error(err, "Failed to update EbpfMap status")
-			return ctrl.Result{}, err
-		}
+	// Construct and call multiple URLs from a list
+	urls := []string{
+		"http://192.168.0.53:8082/load",
+		"http://192.168.10.63:8082/load",
+		// Add more URLs as needed
 	}
 
-	return ctrl.Result{}, nil
+	successCount := 0
+	totalURLs := len(urls)
+
+	for _, baseURL := range urls {
+		// Construct URL with all required parameters for each base URL
+		URL := fmt.Sprintf("%s?name=%s&target=%s&type=%s&code=%s&program=%s",
+			baseURL,
+			url.QueryEscape(ebpfMap.Spec.Name),
+			url.QueryEscape(ebpfMap.Spec.Target),
+			url.QueryEscape(ebpfMap.Spec.Type),
+			url.QueryEscape(ebpfMap.Spec.Code),
+			url.QueryEscape(ebpfMap.Spec.Program))
+
+		fmt.Println(URL)
+
+		// Send HTTP request
+		resp, err := http.Get(URL)
+		if err != nil {
+			logger.Error(err, "Failed to send HTTP request to "+baseURL)
+			// Continue to next URL
+			continue
+		}
+
+		// Read response body
+		body, err := ioutil.ReadAll(resp.Body)
+		resp.Body.Close() // Close body in the loop
+
+		if err != nil {
+			logger.Error(err, "Failed to read response body from "+baseURL)
+			continue
+		}
+
+		// Process the response
+		logger.Info("Received response", "baseURL", baseURL, "response", string(body))
+
+		// Count successful requests
+		if resp.StatusCode == http.StatusOK {
+			successCount++
+		}
+	}
+	// Update status to indicate the program has been loaded
+	condition := metav1.Condition{
+		Type:               "Loaded",
+		Status:             metav1.ConditionTrue,
+		LastTransitionTime: metav1.Now(),
+		Reason:             "CurlSuccess",
+		Message:            "Successfully loaded eBPF program",
+	}
+	meta.SetStatusCondition(&ebpfMap.Status.Conditions, condition)
+
+	if err := r.Status().Update(ctx, &ebpfMap); err != nil {
+		logger.Error(err, "Failed to update EbpfMap status")
+		return ctrl.Result{}, err
+	}
+	// Return result after processing all URLs
+	if successCount > 0 {
+		logger.Info("Successfully processed requests", "successCount", successCount, "totalURLs", totalURLs)
+		return ctrl.Result{}, nil
+	} else {
+		logger.Error(nil, "Failed to process any requests successfully")
+		return ctrl.Result{Requeue: true}, fmt.Errorf("failed to process any requests successfully")
+	}
 }
 
 // SetupWithManager sets up the controller with the Manager.
