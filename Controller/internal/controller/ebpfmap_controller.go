@@ -74,12 +74,12 @@ func (r *EbpfMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		// Construct and call multiple URLs from a list
 		urls := []string{
 			"http://192.168.0.53:8082/load",
-			"http://192.168.10.63:8083/load",
+			"http://192.168.10.63:8082/load",
 			// Add more URLs as needed
 		}
 		for _, baseURL := range urls {
 			// Construct URL with all required parameters for each base URL
-			url := fmt.Sprintf("%s?name=%s&target=%s&type=%s&code=%s&program=%s", baseURL, ebpfMap.Spec.Name, ebpfMap.Spec.Target, ebpfMap.Spec.Type, ebpfMap.Spec.Program)
+			url := fmt.Sprintf("%s?name=%s&target=%s&type=%s&code=%s&program=%s", baseURL, ebpfMap.Spec.Name, ebpfMap.Spec.Target, ebpfMap.Spec.Type, ebpfMap.Spec.Code, ebpfMap.Spec.Program)
 			// Send HTTP request
 			resp, err := http.Get(url)
 			if err != nil {
