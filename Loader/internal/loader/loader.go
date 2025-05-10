@@ -62,6 +62,7 @@ func LoadAndAttachBPF(bpfObjectPath string, args pkg.AttachArgs) (link.Link, *eb
 
 	switch args.Ebpftype {
 	case AttachKprobe:
+		fmt.Println(1211111)
 		lnk, err = link.Kprobe(args.Target, prog, nil)
 	case AttachKretprobe:
 		lnk, err = link.Kretprobe(args.Target, prog, nil)
