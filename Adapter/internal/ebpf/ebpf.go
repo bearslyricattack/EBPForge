@@ -17,6 +17,11 @@ var (
 	EBPFPrograms map[string]EBPFProgram
 )
 
+// 初始化函数
+func init() {
+	EBPFPrograms = make(map[string]EBPFProgram)
+}
+
 var (
 	ebpfPrograms = make(map[string]EBPFProgram) // 初始化
 	lock         = sync.RWMutex{}
