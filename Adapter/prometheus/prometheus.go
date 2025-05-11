@@ -36,17 +36,37 @@ func RegisterGauge(name string, help string, labels []string) error {
 func RegisterCounter(name string, help string, labels []string) error {
 	lock.Lock()
 	defer lock.Unlock()
+
+	fmt.Printf("尝试注册计数器: %s\n", name)
+	fmt.Printf("帮助信息: %s\n", help)
+	fmt.Printf("标签列表: %v\n", labels)
+
 	if _, exists := dynamicCounters[name]; exists {
+		fmt.Printf("计数器 %s 已存在，跳过注册\n", name)
 		return nil
 	}
+
 	counter := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: name,
 		Help: help,
 	}, labels)
+
+	fmt.Printf("创建了新的计数器: %s\n", name)
+
 	if err := prometheus.Register(counter); err != nil {
+		fmt.Printf("注册计数器 %s 失败: %v\n", name, err)
 		return err
 	}
+
+	fmt.Printf("成功注册计数器 %s 到 Prometheus\n", name)
 	dynamicCounters[name] = counter
+
+	// 打印当前已注册的所有计数器
+	fmt.Println("当前已注册的计数器列表:")
+	for counterName := range dynamicCounters {
+		fmt.Printf("- %s\n", counterName)
+	}
+
 	return nil
 }
 
