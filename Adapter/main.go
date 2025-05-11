@@ -14,6 +14,7 @@ import (
 
 func main() {
 	prometheus.Node = *flag.String("node", "unknown-node", "Node label to attach to all Prometheus metrics")
+	fmt.Println(prometheus.Node)
 	flag.Parse()
 
 	tickerInterval := 10 * time.Second
