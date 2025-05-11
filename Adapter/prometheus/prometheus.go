@@ -105,10 +105,10 @@ func AddCounter(name string, value uint64, labelValues ...string) {
 	fmt.Printf("尝试累加计数器: %s\n", name)
 	fmt.Printf("累加值: %d\n", value)
 	fmt.Printf("标签值: %v\n", labelValues)
-
+	newLabelValues := append(labelValues, Node)
 	if counter, exists := dynamicCounters[name]; exists {
 		fmt.Printf("找到计数器 %s，正在累加值\n", name)
-		counter.WithLabelValues(labelValues...).Add(float64(value))
+		counter.WithLabelValues(newLabelValues...).Add(float64(value))
 		fmt.Printf("成功累加计数器 %s 的值 %d，标签值为 %v\n", name, value, labelValues)
 	} else {
 		fmt.Printf("警告: 计数器 %s 不存在，无法累加值\n", name)
