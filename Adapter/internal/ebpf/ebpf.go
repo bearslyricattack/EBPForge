@@ -15,15 +15,6 @@ type EBPFProgram struct {
 }
 
 var (
-	EBPFPrograms map[string]EBPFProgram
-)
-
-// 初始化函数
-func init() {
-	EBPFPrograms = make(map[string]EBPFProgram)
-}
-
-var (
 	ebpfPrograms = make(map[string]EBPFProgram) // 初始化
 	lock         = sync.RWMutex{}
 )
@@ -40,7 +31,7 @@ func AddProgram(name string, path string) error {
 		Name: name,
 		Path: path,
 	}
-	EBPFPrograms[name] = program
+	ebpfPrograms[name] = program
 	return nil
 }
 
