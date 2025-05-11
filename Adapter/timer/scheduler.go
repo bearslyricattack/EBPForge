@@ -10,6 +10,7 @@ import (
 )
 
 func StartScheduler(interval time.Duration) {
+	fmt.Printf("start scheduler interval:%v\n", interval)
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	go func() {
@@ -20,6 +21,7 @@ func StartScheduler(interval time.Duration) {
 }
 
 func ReadAllEBPFPrograms() {
+	fmt.Printf("read all ebpf programs\n")
 	for name, prog := range ebpf.ListPrograms() {
 		fmt.Printf("Reading map for program: %s\n", name)
 		output, err := bpftool.ReadMapUsingTool(prog.Path)
