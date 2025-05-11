@@ -37,12 +37,12 @@ func RegisterCounter(name string, help string, labels []string) error {
 	lock.Lock()
 	defer lock.Unlock()
 
-	fmt.Printf("尝试注册计数器: %s\n", name)
-	fmt.Printf("帮助信息: %s\n", help)
-	fmt.Printf("标签列表: %v\n", labels)
+	//fmt.Printf("尝试注册计数器: %s\n", name)
+	//fmt.Printf("帮助信息: %s\n", help)
+	//fmt.Printf("标签列表: %v\n", labels)
 
 	if _, exists := dynamicCounters[name]; exists {
-		fmt.Printf("计数器 %s 已存在，跳过注册\n", name)
+		//fmt.Printf("计数器 %s 已存在，跳过注册\n", name)
 		return nil
 	}
 
@@ -75,9 +75,9 @@ func SetGauge(name string, value uint64, labelValues ...string) {
 	lock.RLock()
 	defer lock.RUnlock()
 
-	fmt.Printf("尝试设置仪表值: %s\n", name)
-	fmt.Printf("设置值: %d\n", value)
-	fmt.Printf("标签值: %v\n", labelValues)
+	//fmt.Printf("尝试设置仪表值: %s\n", name)
+	//fmt.Printf("设置值: %d\n", value)
+	//fmt.Printf("标签值: %v\n", labelValues)
 
 	if gauge, exists := dynamicGauges[name]; exists {
 		fmt.Printf("找到仪表 %s，正在设置值\n", name)
@@ -102,19 +102,19 @@ func AddCounter(name string, value uint64, labelValues ...string) {
 	lock.RLock()
 	defer lock.RUnlock()
 
-	fmt.Printf("尝试累加计数器: %s\n", name)
-	fmt.Printf("累加值: %d\n", value)
-	fmt.Printf("标签值: %v\n", labelValues)
+	//fmt.Printf("尝试累加计数器: %s\n", name)
+	//fmt.Printf("累加值: %d\n", value)
+	//fmt.Printf("标签值: %v\n", labelValues)
 	newLabelValues := append(labelValues, Node)
 	if counter, exists := dynamicCounters[name]; exists {
-		fmt.Printf("找到计数器 %s，正在累加值\n", name)
+		//fmt.Printf("找到计数器 %s，正在累加值\n", name)
 		counter.WithLabelValues(newLabelValues...).Add(float64(value))
-		fmt.Printf("成功累加计数器 %s 的值 %d，标签值为 %v\n", name, value, labelValues)
+		//fmt.Printf("成功累加计数器 %s 的值 %d，标签值为 %v\n", name, value, labelValues)
 	} else {
-		fmt.Printf("警告: 计数器 %s 不存在，无法累加值\n", name)
+		//fmt.Printf("警告: 计数器 %s 不存在，无法累加值\n", name)
 		// 可选：打印当前所有可用的计数器
 		if len(dynamicCounters) > 0 {
-			fmt.Println("当前可用的计数器:")
+			//fmt.Println("当前可用的计数器:")
 			for counterName := range dynamicCounters {
 				fmt.Printf("- %s\n", counterName)
 			}

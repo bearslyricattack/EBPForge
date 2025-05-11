@@ -9,7 +9,6 @@ import (
 )
 
 func ParseBpftoolMapOutput(output string) map[string]uint64 {
-	fmt.Println("开始解析 JSON 格式输出...")
 	result := make(map[string]uint64)
 
 	// 尝试解析完整的JSON数组
@@ -28,9 +27,6 @@ func ParseBpftoolMapOutput(output string) map[string]uint64 {
 
 	err := json.Unmarshal([]byte(output), &entries)
 	if err != nil {
-		fmt.Printf("JSON解析失败: %v\n", err)
-		fmt.Println("尝试逐行解析...")
-
 		// 如果完整解析失败，尝试逐行解析
 		scanner := bufio.NewScanner(strings.NewReader(output))
 		var currentKey string
@@ -73,7 +69,7 @@ func ParseBpftoolMapOutput(output string) map[string]uint64 {
 		}
 	} else {
 		// 成功解析完整JSON
-		fmt.Printf("成功解析JSON，找到 %d 个条目\n", len(entries))
+		//fmt.Printf("成功解析JSON，找到 %d 个条目\n", len(entries))
 		for _, entry := range entries {
 			value, err := entry.Value.Int64()
 			if err != nil {
