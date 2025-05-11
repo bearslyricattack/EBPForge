@@ -42,11 +42,17 @@ spec:
               code:
                 description: ebpf 具体的代码
                 type: string
+              help:
+                description: ebpf 在prometheus-help中的内容
+                type: string
               name:
                 description: ebpf代码的名称
                 type: string
               program:
                 description: ebpf 程序里写的名称
+                type: string
+              prometheusType:
+                description: ebpf 在prometheus-type中的类型
                 type: string
               target:
                 description: ebpf 代码部署的挂载点

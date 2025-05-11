@@ -42,6 +42,12 @@ type EbpfMapSpec struct {
 
 	//ebpf 程序里写的名称
 	Program string `json:"program,omitempty"`
+
+	//ebpf 在prometheus-help中的内容
+	Help string `json:"help,omitempty"`
+
+	//ebpf 在prometheus-type中的类型
+	PrometheusType string `json:"prometheusType,omitempty"`
 }
 
 // EbpfMapStatus defines the observed state of EbpfMap.

@@ -17,7 +17,9 @@ limitations under the License.
 package controller
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -125,6 +127,68 @@ func (r *EbpfMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 	meta.SetStatusCondition(&ebpfMap.Status.Conditions, condition)
 
+	// URLs for the register endpoint
+	registerURLs := []string{
+		"http://192.168.0.53:8080/register",
+		"http://192.168.10.63:8080/register",
+		// Add more URLs as needed
+	}
+
+	registerSuccessCount := 0
+	totalRegisterURLs := len(registerURLs)
+
+	// Prepare the JSON payload
+	registerPayload := map[string]interface{}{
+		"name":   ebpfMap.Spec.Name,
+		"help":   ebpfMap.Spec.Help,
+		"type":   ebpfMap.Spec.PrometheusType,
+		"labels": []string{"key"},
+		"path":   "/sys/fs/bpf/" + ebpfMap.Spec.Name + "/" + ebpfMap.Spec.Program,
+	}
+
+	// Convert the payload to JSON
+	jsonPayload, err := json.Marshal(registerPayload)
+	if err != nil {
+		logger.Error(err, "Failed to marshal JSON payload")
+	}
+
+	for _, registerURL := range registerURLs {
+		// Create a new POST request
+		req, err := http.NewRequest("POST", registerURL, bytes.NewBuffer(jsonPayload))
+		if err != nil {
+			logger.Error(err, "Failed to create HTTP request for "+registerURL)
+			continue
+		}
+
+		// Set headers
+		req.Header.Set("Content-Type", "application/json")
+
+		// Send the request
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			logger.Error(err, "Failed to send HTTP request to "+registerURL)
+			continue
+		}
+
+		// Read response body
+		body, err := ioutil.ReadAll(resp.Body)
+		resp.Body.Close() // Close body in the loop
+
+		if err != nil {
+			logger.Error(err, "Failed to read response body from "+registerURL)
+			continue
+		}
+
+		// Process the response
+		logger.Info("Received register response", "registerURL", registerURL, "response", string(body))
+
+		// Count successful requests
+		if resp.StatusCode == http.StatusOK {
+			registerSuccessCount++
+		}
+	}
+	logger.Info("Register requests completed", "successful", registerSuccessCount, "total", totalRegisterURLs)
 	if err := r.Status().Update(ctx, &ebpfMap); err != nil {
 		logger.Error(err, "Failed to update EbpfMap status")
 		return ctrl.Result{}, err
