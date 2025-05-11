@@ -143,7 +143,7 @@ func (r *EbpfMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		"help":   ebpfMap.Spec.Help,
 		"type":   ebpfMap.Spec.PrometheusType,
 		"labels": []string{"key"},
-		"path":   "/sys/fs/bpf/" + ebpfMap.Spec.Name + "/" + ebpfMap.Spec.Program,
+		"path":   "/sys/fs/bpf/" + ebpfMap.Spec.Name + "/" + ebpfMap.Spec.Map,
 	}
 
 	// Convert the payload to JSON

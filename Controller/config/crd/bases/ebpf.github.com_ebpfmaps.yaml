@@ -45,6 +45,9 @@ spec:
               help:
                 description: ebpf 在prometheus-help中的内容
                 type: string
+              map:
+                description: ebpf maps 具体的名称
+                type: string
               name:
                 description: ebpf代码的名称
                 type: string
