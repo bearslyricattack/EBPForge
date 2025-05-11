@@ -2,6 +2,7 @@ package ebpf
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 )
 
@@ -59,6 +60,8 @@ func ListPrograms() []EBPFProgram {
 	for _, p := range ebpfPrograms {
 		list = append(list, p)
 	}
+	fmt.Print("当前的程序有：")
+	fmt.Println(list)
 	return list
 }
 

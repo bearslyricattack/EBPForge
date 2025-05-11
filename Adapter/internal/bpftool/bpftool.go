@@ -8,6 +8,7 @@ import (
 // ReadMapUsingTool reads the BPF map using bpftool.
 func ReadMapUsingTool(path string) (string, error) {
 	cmd := exec.Command("bpftool", "map", "dump", "pinned", path)
+	fmt.Println("")
 	output, err := cmd.CombinedOutput()
 	fmt.Println("获取结果")
 	fmt.Println(string(output))
