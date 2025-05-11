@@ -12,7 +12,6 @@ import (
 func StartScheduler(interval time.Duration) {
 	fmt.Printf("start scheduler interval:%v\n", interval)
 	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
 	go func() {
 		for range ticker.C {
 			ReadAllEBPFPrograms()
