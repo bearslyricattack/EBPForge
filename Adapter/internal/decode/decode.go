@@ -58,11 +58,11 @@ func ParseBpftoolMapOutput(output string) map[string]uint64 {
 					valueStr = strings.TrimRight(valueStr, ",")
 					value, err := strconv.ParseUint(valueStr, 10, 64)
 					if err != nil {
-						fmt.Printf("解析值失败: %v\n", err)
+						//fmt.Printf("解析值失败: %v\n", err)
 						continue
 					}
 					result[currentKey] = value
-					fmt.Printf("添加键值对: %q => %d\n", currentKey, value)
+					//fmt.Printf("添加键值对: %q => %d\n", currentKey, value)
 					currentKey = ""
 				}
 			}
@@ -77,7 +77,7 @@ func ParseBpftoolMapOutput(output string) map[string]uint64 {
 				continue
 			}
 			result[entry.Key] = uint64(value)
-			fmt.Printf("添加键值对: %q => %d\n", entry.Key, value)
+			//fmt.Printf("添加键值对: %q => %d\n", entry.Key, value)
 		}
 	}
 
