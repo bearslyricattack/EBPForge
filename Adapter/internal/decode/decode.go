@@ -2,55 +2,89 @@ package decode
 
 import (
 	"bufio"
-	"bytes"
-	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
 )
 
 func ParseBpftoolMapOutput(output string) map[string]uint64 {
-	fmt.Println("开始解析 bpftool map 输出...")
+	fmt.Println("开始解析 JSON 格式输出...")
 	result := make(map[string]uint64)
-	scanner := bufio.NewScanner(strings.NewReader(output))
-	var key string
-	lineCount := 0
 
-	for scanner.Scan() {
-		lineCount++
-		line := strings.TrimSpace(scanner.Text())
-		fmt.Printf("处理第 %d 行: %s\n", lineCount, line)
+	// 尝试解析完整的JSON数组
+	var entries []struct {
+		Key   string      `json:"key"`
+		Value json.Number `json:"value"`
+	}
 
-		if strings.HasPrefix(line, "key:") {
-			hexPart := strings.TrimSpace(strings.TrimPrefix(line, "key:"))
-			fmt.Printf("发现键值行，十六进制部分: %s\n", hexPart)
+	// 确保输入是有效的JSON数组
+	if !strings.HasPrefix(strings.TrimSpace(output), "[") {
+		output = "[" + output
+	}
+	if !strings.HasSuffix(strings.TrimSpace(output), "]") {
+		output = output + "]"
+	}
 
-			keyBytes, err := hex.DecodeString(strings.ReplaceAll(hexPart, " ", ""))
-			if err != nil {
-				fmt.Printf("解析键值十六进制失败: %v\n", err)
-				continue
+	err := json.Unmarshal([]byte(output), &entries)
+	if err != nil {
+		fmt.Printf("JSON解析失败: %v\n", err)
+		fmt.Println("尝试逐行解析...")
+
+		// 如果完整解析失败，尝试逐行解析
+		scanner := bufio.NewScanner(strings.NewReader(output))
+		var currentKey string
+		lineCount := 0
+
+		for scanner.Scan() {
+			lineCount++
+			line := strings.TrimSpace(scanner.Text())
+			fmt.Printf("处理第 %d 行: %s\n", lineCount, line)
+
+			// 解析键
+			if strings.Contains(line, "\"key\":") {
+				keyParts := strings.Split(line, ":")
+				if len(keyParts) >= 2 {
+					keyStr := strings.TrimSpace(keyParts[1])
+					// 移除引号和逗号
+					keyStr = strings.Trim(keyStr, "\",")
+					currentKey = keyStr
+					fmt.Printf("找到键: %q\n", currentKey)
+				}
 			}
 
-			key = string(bytes.TrimRight(keyBytes, "\x00")) // 去除多余 \x00
-			fmt.Printf("解析后的键名: %q\n", key)
+			// 解析值
+			if strings.Contains(line, "\"value\":") && currentKey != "" {
+				valueParts := strings.Split(line, ":")
+				if len(valueParts) >= 2 {
+					valueStr := strings.TrimSpace(valueParts[1])
+					// 移除逗号
+					valueStr = strings.TrimRight(valueStr, ",")
+					value, err := strconv.ParseUint(valueStr, 10, 64)
+					if err != nil {
+						fmt.Printf("解析值失败: %v\n", err)
+						continue
+					}
+					result[currentKey] = value
+					fmt.Printf("添加键值对: %q => %d\n", currentKey, value)
+					currentKey = ""
+				}
+			}
 		}
-
-		if strings.HasPrefix(line, "value:") && key != "" {
-			hexVal := strings.TrimSpace(strings.TrimPrefix(line, "value:"))
-			fmt.Printf("发现值行，十六进制值: %s\n", hexVal)
-
-			val, err := strconv.ParseUint(strings.TrimPrefix(hexVal, "0x"), 16, 64)
+	} else {
+		// 成功解析完整JSON
+		fmt.Printf("成功解析JSON，找到 %d 个条目\n", len(entries))
+		for _, entry := range entries {
+			value, err := entry.Value.Int64()
 			if err != nil {
-				fmt.Printf("解析值十六进制失败: %v\n", err)
+				fmt.Printf("解析值失败: %v\n", err)
 				continue
 			}
-
-			result[key] = val
-			fmt.Printf("添加键值对: %q => %d\n", key, val)
-			key = ""
+			result[entry.Key] = uint64(value)
+			fmt.Printf("添加键值对: %q => %d\n", entry.Key, value)
 		}
 	}
 
-	fmt.Printf("解析完成，共解析 %d 行，得到 %d 个键值对\n", lineCount, len(result))
+	fmt.Printf("解析完成，共得到 %d 个键值对\n", len(result))
 	return result
 }
