@@ -27,7 +27,7 @@ func StartServer() {
 			http.Error(w, fmt.Sprintf("Invalid JSON: %v", err), http.StatusBadRequest)
 			return
 		}
-		err := ebpf.AddProgram(req.Name, req.Path)
+		err := ebpf.AddProgram(req.Name, req.Path, req.Type)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Failed to register program: %v", err), http.StatusInternalServerError)
 		}

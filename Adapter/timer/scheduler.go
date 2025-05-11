@@ -23,6 +23,7 @@ func ReadAllEBPFPrograms() {
 	fmt.Printf("read all ebpf programs\n")
 	for name, prog := range ebpf.ListPrograms() {
 		fmt.Printf("Reading map for program: %s\n", name)
+		fmt.Println(prog)
 		output, err := bpftool.ReadMapUsingTool(prog.Path)
 		if err != nil {
 			fmt.Printf("Failed to read map for %s: %v\n", name, err)

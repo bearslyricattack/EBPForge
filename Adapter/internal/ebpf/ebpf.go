@@ -20,7 +20,7 @@ var (
 )
 
 // AddProgram 新增一个 eBPF 程序
-func AddProgram(name string, path string) error {
+func AddProgram(name string, path string, programType string) error {
 	lock.Lock()
 	defer lock.Unlock()
 
@@ -30,6 +30,7 @@ func AddProgram(name string, path string) error {
 	var program = EBPFProgram{
 		Name: name,
 		Path: path,
+		Type: programType,
 	}
 	ebpfPrograms[name] = program
 	return nil
