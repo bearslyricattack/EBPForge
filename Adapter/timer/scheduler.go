@@ -32,8 +32,10 @@ func ReadAllEBPFPrograms() {
 		for label, value := range parsed {
 			switch prog.Type {
 			case "Counter":
+				fmt.Printf("Counter")
 				prometheus.AddCounter(prog.Name, value, label)
 			case "Gauge":
+				fmt.Printf("Gauge")
 				prometheus.SetGauge(prog.Name, value, label)
 			default:
 				fmt.Printf("Unknown metric type '%s' for prog %s\n", prog.Type, prog.Name)

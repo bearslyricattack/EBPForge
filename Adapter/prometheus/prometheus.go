@@ -74,8 +74,26 @@ func RegisterCounter(name string, help string, labels []string) error {
 func SetGauge(name string, value uint64, labelValues ...string) {
 	lock.RLock()
 	defer lock.RUnlock()
+
+	fmt.Printf("尝试设置仪表值: %s\n", name)
+	fmt.Printf("设置值: %d\n", value)
+	fmt.Printf("标签值: %v\n", labelValues)
+
 	if gauge, exists := dynamicGauges[name]; exists {
+		fmt.Printf("找到仪表 %s，正在设置值\n", name)
 		gauge.WithLabelValues(labelValues...).Set(float64(value))
+		fmt.Printf("成功设置仪表 %s 的值为 %d，标签值为 %v\n", name, value, labelValues)
+	} else {
+		fmt.Printf("警告: 仪表 %s 不存在，无法设置值\n", name)
+		// 可选：打印当前所有可用的仪表
+		if len(dynamicGauges) > 0 {
+			fmt.Println("当前可用的仪表:")
+			for gaugeName := range dynamicGauges {
+				fmt.Printf("- %s\n", gaugeName)
+			}
+		} else {
+			fmt.Println("当前没有注册的仪表")
+		}
 	}
 }
 
@@ -83,8 +101,26 @@ func SetGauge(name string, value uint64, labelValues ...string) {
 func AddCounter(name string, value uint64, labelValues ...string) {
 	lock.RLock()
 	defer lock.RUnlock()
+
+	fmt.Printf("尝试累加计数器: %s\n", name)
+	fmt.Printf("累加值: %d\n", value)
+	fmt.Printf("标签值: %v\n", labelValues)
+
 	if counter, exists := dynamicCounters[name]; exists {
+		fmt.Printf("找到计数器 %s，正在累加值\n", name)
 		counter.WithLabelValues(labelValues...).Add(float64(value))
+		fmt.Printf("成功累加计数器 %s 的值 %d，标签值为 %v\n", name, value, labelValues)
+	} else {
+		fmt.Printf("警告: 计数器 %s 不存在，无法累加值\n", name)
+		// 可选：打印当前所有可用的计数器
+		if len(dynamicCounters) > 0 {
+			fmt.Println("当前可用的计数器:")
+			for counterName := range dynamicCounters {
+				fmt.Printf("- %s\n", counterName)
+			}
+		} else {
+			fmt.Println("当前没有注册的计数器")
+		}
 	}
 }
 
