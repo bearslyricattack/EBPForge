@@ -8,8 +8,6 @@ import (
 	"github.com/cilium/ebpf/link"
 	"github.com/cilium/ebpf/rlimit"
 	"net"
-	"os"
-	"path/filepath"
 	"strings"
 )
 
@@ -104,43 +102,6 @@ func LoadAndAttachBPF(bpfObjectPath string, args pkg.AttachArgs) (link.Link, *eb
 		return nil, nil, fmt.Errorf("挂载失败: %w", err)
 	}
 
-	// 确定固定路径
-	bpfFSPath := "/sys/fs/bpf"
-	// 确保基础目录存在
-	if err := os.MkdirAll(bpfFSPath, 0755); err != nil {
-		lnk.Close()
-		coll.Close()
-		return nil, nil, fmt.Errorf("创建BPF文件系统路径失败: %w", err)
-	}
-
-	// 创建程序专用目录
-	progDir := filepath.Join(bpfFSPath, args.Name)
-	if err := os.MkdirAll(progDir, 0755); err != nil {
-		lnk.Close()
-		coll.Close()
-		return nil, nil, fmt.Errorf("创建程序目录失败: %w", err)
-	}
-
-	// 固定每个map
-	for mapName, m := range coll.Maps {
-		mapPath := filepath.Join(progDir, mapName)
-		// 如果已存在，先移除
-		if _, err := os.Stat(mapPath); err == nil {
-			if err := os.Remove(mapPath); err != nil {
-				lnk.Close()
-				coll.Close()
-				return nil, nil, fmt.Errorf("移除已存在的map '%s'失败: %w", mapName, err)
-			}
-		}
-
-		// 固定map
-		if err := m.Pin(mapPath); err != nil {
-			lnk.Close()
-			coll.Close()
-			return nil, nil, fmt.Errorf("固定map '%s'失败: %w", mapName, err)
-		}
-		fmt.Printf("Map '%s' 已固定到: %s\n", mapName, mapPath)
-	}
 	return lnk, coll, nil
 }
 

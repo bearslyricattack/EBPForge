@@ -62,6 +62,38 @@ type EbpfMapStatus struct {
 
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	// Phase 表示 EbpfMap 资源的整体状态
+	// 可能的值: Pending, Deploying, Running, Failed, Terminating
+	// +optional
+	Phase string `json:"phase,omitempty"`
+
+	// MountStatus 表示 eBPF 程序挂载的状态
+	// +optional
+	MountStatus string `json:"mountStatus,omitempty"`
+
+	// ForwardingStatus 表示 eBPF 数据转发程序的运行状态
+	// +optional
+	ForwardingStatus string `json:"forwardingStatus,omitempty"`
+
+	// RunningNodes 表示当前运行 eBPF 程序的节点列表
+	// +optional
+	RunningNodes []string `json:"runningNodes,omitempty"`
+
+	// NodeCount 表示当前运行 eBPF 程序的节点总数
+	// +optional
+	NodeCount int32 `json:"nodeCount,omitempty"`
+
+	// LastSuccessfulUpdate 记录最后一次成功更新的时间戳
+	// +optional
+	LastSuccessfulUpdate metav1.Time `json:"lastSuccessfulUpdate,omitempty"`
+
+	// Metrics 记录 eBPF 程序收集的关键指标摘要
+	// +optional
+	Metrics map[string]string `json:"metrics,omitempty"`
+
+	// ErrorMessage 记录最近的错误信息，如果有的话
+	// +optional
+	ErrorMessage string `json:"errorMessage,omitempty"`
 }
 
 // +kubebuilder:object:root=true

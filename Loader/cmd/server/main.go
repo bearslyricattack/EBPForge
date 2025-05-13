@@ -69,6 +69,29 @@ func loadHandler(c *gin.Context) {
 	})
 }
 
+// 查询所有加载的eBPF程序状态
+func loadStatusHandler(c *gin.Context) {
+	//调用bpf tool 返回
+	// 返回所有加载的程序
+	//c.JSON(200, )
+}
+
+// 卸载eBPF程序
+func unloadHandler(c *gin.Context) {
+	name := c.Query("name")
+	if name == "" {
+		c.JSON(400, gin.H{
+			"error": "必须提供程序名称",
+		})
+		return
+	}
+	//调用bpf tool 返回
+	c.JSON(200, gin.H{
+		"status":  "success",
+		"message": fmt.Sprintf("程序 %s 已成功卸载", name),
+	})
+}
+
 func main() {
 	r := gin.Default()
 	r.GET("/load", loadHandler)
