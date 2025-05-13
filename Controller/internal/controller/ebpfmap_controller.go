@@ -76,7 +76,7 @@ func (r *EbpfMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 		// 获取对象时出错 - 重新入队请求
 		logger.Error(err, "获取 EbpfMap 失败")
-		return ctrl.Result{}, err
+		return ctrl.Result{RequeueAfter: time.Second * 10}, err
 	}
 
 	// 如果尚未设置状态，则初始化状态
@@ -93,7 +93,7 @@ func (r *EbpfMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	ebpfMap.Status.Phase = "Deploying"
 	_, err := r.updateStatus(ctx, &ebpfMap, logger)
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{RequeueAfter: time.Second * 10}, err
 	}
 
 	// 构建并调用列表中的多个 URL
@@ -281,7 +281,7 @@ func (r *EbpfMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	// 更新状态
 	_, err = r.updateStatus(ctx, &ebpfMap, logger)
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{RequeueAfter: time.Second * 10}, err
 	}
 
 	logger.Info("协调完成",
@@ -371,7 +371,7 @@ func (r *EbpfMapReconciler) updateStatus(ctx context.Context, ebpfMap *ebpfv1.Eb
 	}
 
 	logger.Info("成功更新状态", "resource", key, "resourceVersion", ebpfMap.ResourceVersion)
-	return ctrl.Result{}, nil
+	return ctrl.Result{RequeueAfter: time.Second * 10}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
