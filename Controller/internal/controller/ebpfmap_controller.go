@@ -20,10 +20,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
-	"k8s.io/apimachinery/pkg/api/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	k8serror "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -66,7 +67,7 @@ func (r *EbpfMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	// 获取 EbpfMap 实例
 	var ebpfMap ebpfv1.EbpfMap
 	if err := r.Get(ctx, req.NamespacedName, &ebpfMap); err != nil {
-		if errors.IsNotFound(err) {
+		if k8serror.IsNotFound(err) {
 			// 请求的对象不存在，可能已被删除
 			logger.Info("未找到 EbpfMap 资源，忽略，因为它可能已被删除")
 			return ctrl.Result{}, nil
@@ -94,12 +95,28 @@ func (r *EbpfMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	// 更新状态以表明部署正在进行中
 	ebpfMap.Status.Phase = "Deploying"
-	if err := r.Status().Update(ctx, &ebpfMap); err != nil {
+	err := r.Status().Update(ctx, &ebpfMap)
+	if err != nil {
 		if apierrors.IsConflict(err) {
+			logger.Info("检测到资源冲突，重新排队")
 			return ctrl.Result{Requeue: true}, nil
 		}
+
+		// 处理速率限制错误
+		if strings.Contains(err.Error(), "rate limiter") {
+			logger.Info("API 速率限制，稍后重试", "error", err)
+			return ctrl.Result{RequeueAfter: time.Second * 5}, nil
+		}
+
+		// 处理上下文取消
+		if errors.Is(err, context.Canceled) || strings.Contains(err.Error(), "context canceled") {
+			logger.Info("上下文已取消，将重新排队", "error", err)
+			return ctrl.Result{Requeue: true}, nil
+		}
+
+		// 其他可能是临时性的错误
 		logger.Error(err, "更新 EbpfMap 状态为 Deploying 失败")
-		return ctrl.Result{}, err
+		return ctrl.Result{RequeueAfter: time.Second * 10}, nil
 	}
 
 	// 构建并调用列表中的多个 URL
