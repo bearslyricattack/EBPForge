@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/go-logr/logr"
 	"io/ioutil"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	k8serror "k8s.io/apimachinery/pkg/api/errors"
@@ -84,39 +85,14 @@ func (r *EbpfMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		ebpfMap.Status.ForwardingStatus = "NotStarted"
 		ebpfMap.Status.NodeCount = 0
 		ebpfMap.Status.RunningNodes = []string{}
-		if err := r.Status().Update(ctx, &ebpfMap); err != nil {
-			if apierrors.IsConflict(err) {
-				return ctrl.Result{Requeue: true}, nil
-			}
-			logger.Error(err, "初始化 EbpfMap 状态失败")
-			return ctrl.Result{}, err
-		}
+		return r.updateStatus(ctx, &ebpfMap, logger)
 	}
 
 	// 更新状态以表明部署正在进行中
 	ebpfMap.Status.Phase = "Deploying"
-	err := r.Status().Update(ctx, &ebpfMap)
+	_, err := r.updateStatus(ctx, &ebpfMap, logger)
 	if err != nil {
-		if apierrors.IsConflict(err) {
-			logger.Info("检测到资源冲突，重新排队")
-			return ctrl.Result{Requeue: true}, nil
-		}
-
-		// 处理速率限制错误
-		if strings.Contains(err.Error(), "rate limiter") {
-			logger.Info("API 速率限制，稍后重试", "error", err)
-			return ctrl.Result{RequeueAfter: time.Second * 5}, nil
-		}
-
-		// 处理上下文取消
-		if errors.Is(err, context.Canceled) || strings.Contains(err.Error(), "context canceled") {
-			logger.Info("上下文已取消，将重新排队", "error", err)
-			return ctrl.Result{Requeue: true}, nil
-		}
-
-		// 其他可能是临时性的错误
-		logger.Error(err, "更新 EbpfMap 状态为 Deploying 失败")
-		return ctrl.Result{RequeueAfter: time.Second * 10}, nil
+		return ctrl.Result{}, err
 	}
 
 	// 构建并调用列表中的多个 URL
@@ -166,14 +142,8 @@ func (r *EbpfMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		ebpfMap.Status.MountStatus = "MountFailed"
 		ebpfMap.Status.Phase = "Failed"
 		ebpfMap.Status.ErrorMessage = "在任何节点上挂载 eBPF 程序失败"
-		if err := r.Status().Update(ctx, &ebpfMap); err != nil {
-			if apierrors.IsConflict(err) {
-				return ctrl.Result{Requeue: true}, nil
-			}
-			logger.Error(err, "挂载失败后更新 EbpfMap 状态失败")
-			return ctrl.Result{}, err
-		}
-		return ctrl.Result{Requeue: true}, fmt.Errorf("在任何节点上挂载 eBPF 程序失败")
+		logger.Error(err, "在任何节点上挂载 eBPF 程序失败")
+		return r.updateStatus(ctx, &ebpfMap, logger)
 	}
 
 	// 更新状态以表明程序已加载
@@ -211,14 +181,7 @@ func (r *EbpfMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if err != nil {
 		logger.Error(err, "序列化 JSON 负载失败")
 		ebpfMap.Status.ErrorMessage = "为注册序列化 JSON 负载失败"
-		if err := r.Status().Update(ctx, &ebpfMap); err != nil {
-			if apierrors.IsConflict(err) {
-				return ctrl.Result{Requeue: true}, nil
-			}
-			logger.Error(err, "JSON 序列化错误后更新 EbpfMap 状态失败")
-			return ctrl.Result{}, err
-		}
-		return ctrl.Result{}, err
+		return r.updateStatus(ctx, &ebpfMap, logger)
 	}
 
 	for _, registerURL := range registerURLs {
@@ -315,11 +278,8 @@ func (r *EbpfMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	meta.SetStatusCondition(&ebpfMap.Status.Conditions, condition)
 
 	// 更新状态
-	if err := r.Status().Update(ctx, &ebpfMap); err != nil {
-		if apierrors.IsConflict(err) {
-			return ctrl.Result{Requeue: true}, nil
-		}
-		logger.Error(err, "更新 EbpfMap 状态失败")
+	_, err = r.updateStatus(ctx, &ebpfMap, logger)
+	if err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -332,7 +292,34 @@ func (r *EbpfMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if ebpfMap.Status.Phase != "Running" {
 		return ctrl.Result{Requeue: true, RequeueAfter: time.Minute * 5}, nil
 	}
+	return ctrl.Result{}, nil
+}
 
+// 统一的状态更新辅助函数
+func (r *EbpfMapReconciler) updateStatus(ctx context.Context, ebpfMap *ebpfv1.EbpfMap, logger logr.Logger) (ctrl.Result, error) {
+	err := r.Status().Update(ctx, ebpfMap)
+	if err != nil {
+		if apierrors.IsConflict(err) {
+			logger.Info("检测到资源冲突，重新排队")
+			return ctrl.Result{Requeue: true}, nil
+		}
+
+		// 处理速率限制错误
+		if strings.Contains(err.Error(), "rate limiter") {
+			logger.Info("API 速率限制，稍后重试", "error", err)
+			return ctrl.Result{RequeueAfter: time.Second * 5}, nil
+		}
+
+		// 处理上下文取消
+		if errors.Is(err, context.Canceled) || strings.Contains(err.Error(), "context canceled") {
+			logger.Info("上下文已取消，将重新排队", "error", err)
+			return ctrl.Result{Requeue: true}, nil
+		}
+
+		// 其他可能是临时性的错误
+		logger.Error(err, "更新 EbpfMap 状态失败")
+		return ctrl.Result{RequeueAfter: time.Second * 10}, nil
+	}
 	return ctrl.Result{}, nil
 }
 
