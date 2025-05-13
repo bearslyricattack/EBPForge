@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -83,6 +84,9 @@ func (r *EbpfMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		ebpfMap.Status.NodeCount = 0
 		ebpfMap.Status.RunningNodes = []string{}
 		if err := r.Status().Update(ctx, &ebpfMap); err != nil {
+			if apierrors.IsConflict(err) {
+				return ctrl.Result{Requeue: true}, nil
+			}
 			logger.Error(err, "初始化 EbpfMap 状态失败")
 			return ctrl.Result{}, err
 		}
@@ -91,6 +95,9 @@ func (r *EbpfMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	// 更新状态以表明部署正在进行中
 	ebpfMap.Status.Phase = "Deploying"
 	if err := r.Status().Update(ctx, &ebpfMap); err != nil {
+		if apierrors.IsConflict(err) {
+			return ctrl.Result{Requeue: true}, nil
+		}
 		logger.Error(err, "更新 EbpfMap 状态为 Deploying 失败")
 		return ctrl.Result{}, err
 	}
@@ -105,23 +112,13 @@ func (r *EbpfMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	successCount := 0
 	totalURLs := len(urls)
 	successfulNodes := []string{}
-
 	for _, baseURL := range urls {
 		// 从 URL 中提取节点标识符（演示用，使用 IP）
 		nodeID := baseURL[7:] // 移除 "http://" 前缀
 		nodeID = nodeID[:strings.Index(nodeID, ":")]
-
 		// 为每个基础 URL 构建包含所有必需参数的 URL
-		URL := fmt.Sprintf("%s?name=%s&target=%s&type=%s&code=%s&program=%s",
-			baseURL,
-			url.QueryEscape(ebpfMap.Spec.Name),
-			url.QueryEscape(ebpfMap.Spec.Target),
-			url.QueryEscape(ebpfMap.Spec.Type),
-			url.QueryEscape(ebpfMap.Spec.Code),
-			url.QueryEscape(ebpfMap.Spec.Program))
-
+		URL := fmt.Sprintf("%s?name=%s&target=%s&type=%s&code=%s&program=%s", baseURL, url.QueryEscape(ebpfMap.Spec.Name), url.QueryEscape(ebpfMap.Spec.Target), url.QueryEscape(ebpfMap.Spec.Type), url.QueryEscape(ebpfMap.Spec.Code), url.QueryEscape(ebpfMap.Spec.Program))
 		fmt.Println(URL)
-
 		// 发送 HTTP 请求
 		resp, err := http.Get(URL)
 		if err != nil {
@@ -129,19 +126,15 @@ func (r *EbpfMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			// 继续下一个 URL
 			continue
 		}
-
 		// 读取响应体
 		body, err := ioutil.ReadAll(resp.Body)
 		resp.Body.Close() // 在循环中关闭响应体
-
 		if err != nil {
 			logger.Error(err, "从 "+baseURL+" 读取响应体失败")
 			continue
 		}
-
 		// 处理响应
 		logger.Info("收到响应", "baseURL", baseURL, "response", string(body))
-
 		// 统计成功的请求
 		if resp.StatusCode == http.StatusOK {
 			successCount++
@@ -157,6 +150,9 @@ func (r *EbpfMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		ebpfMap.Status.Phase = "Failed"
 		ebpfMap.Status.ErrorMessage = "在任何节点上挂载 eBPF 程序失败"
 		if err := r.Status().Update(ctx, &ebpfMap); err != nil {
+			if apierrors.IsConflict(err) {
+				return ctrl.Result{Requeue: true}, nil
+			}
 			logger.Error(err, "挂载失败后更新 EbpfMap 状态失败")
 			return ctrl.Result{}, err
 		}
@@ -199,6 +195,9 @@ func (r *EbpfMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		logger.Error(err, "序列化 JSON 负载失败")
 		ebpfMap.Status.ErrorMessage = "为注册序列化 JSON 负载失败"
 		if err := r.Status().Update(ctx, &ebpfMap); err != nil {
+			if apierrors.IsConflict(err) {
+				return ctrl.Result{Requeue: true}, nil
+			}
 			logger.Error(err, "JSON 序列化错误后更新 EbpfMap 状态失败")
 			return ctrl.Result{}, err
 		}
@@ -300,6 +299,9 @@ func (r *EbpfMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	// 更新状态
 	if err := r.Status().Update(ctx, &ebpfMap); err != nil {
+		if apierrors.IsConflict(err) {
+			return ctrl.Result{Requeue: true}, nil
+		}
 		logger.Error(err, "更新 EbpfMap 状态失败")
 		return ctrl.Result{}, err
 	}
