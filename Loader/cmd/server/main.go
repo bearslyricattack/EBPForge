@@ -59,7 +59,7 @@ func loadHandler(c *gin.Context) {
 	_, collection, err = loader.LoadAndAttachBPF(path, args)
 	if err != nil {
 		c.JSON(500, gin.H{
-			"error": fmt.Sprintf("加载 kprobe 程序失败: %v", err),
+			"error": fmt.Sprintf("加载 eBPF 程序失败，程序类型%s: %v", ebpftype, err),
 		})
 		return
 	}
