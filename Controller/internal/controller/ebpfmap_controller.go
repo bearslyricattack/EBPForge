@@ -35,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"strings"
+	"sync"
 	"time"
 
 	ebpfv1 "github.com/bearslyricattack/ebpf-controller/api/v1"
@@ -295,31 +296,81 @@ func (r *EbpfMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	return ctrl.Result{}, nil
 }
 
+// 存储最近处理的资源版本和重试次数
+var (
+	processedVersions = make(map[string]string)
+	retryCount        = make(map[string]int)
+	maxRetries        = 5
+	statusUpdateMutex sync.Mutex
+)
+
 // 统一的状态更新辅助函数
 func (r *EbpfMapReconciler) updateStatus(ctx context.Context, ebpfMap *ebpfv1.EbpfMap, logger logr.Logger) (ctrl.Result, error) {
+	// 使用互斥锁保护共享映射访问
+	statusUpdateMutex.Lock()
+	defer statusUpdateMutex.Unlock()
+
+	// 创建资源键
+	key := fmt.Sprintf("%s/%s", ebpfMap.Namespace, ebpfMap.Name)
+
+	// 检查是否是相同的资源版本
+	if lastVersion, exists := processedVersions[key]; exists && lastVersion == ebpfMap.ResourceVersion {
+		// 增加重试计数
+		retryCount[key]++
+
+		// 如果超过最大重试次数，则暂停较长时间
+		if retryCount[key] > maxRetries {
+			logger.Info("达到最大重试次数，延长等待时间",
+				"resource", key,
+				"retries", retryCount[key])
+
+			// 重置重试计数器
+			retryCount[key] = 0
+
+			// 返回较长的重新排队时间
+			return ctrl.Result{RequeueAfter: time.Minute * 5}, nil
+		}
+
+		// 根据重试次数增加等待时间
+		waitTime := time.Second * time.Duration(5*retryCount[key])
+		logger.Info("检测到相同资源版本，增加等待时间",
+			"resource", key,
+			"retries", retryCount[key],
+			"waitTime", waitTime)
+
+		return ctrl.Result{RequeueAfter: waitTime}, nil
+	}
+
+	// 记录当前处理的资源版本
+	processedVersions[key] = ebpfMap.ResourceVersion
+	retryCount[key] = 0
+
+	// 尝试更新状态
 	err := r.Status().Update(ctx, ebpfMap)
 	if err != nil {
 		if apierrors.IsConflict(err) {
-			logger.Info("检测到资源冲突，重新排队")
-			return ctrl.Result{Requeue: true}, nil
+			logger.Info("检测到资源冲突，延迟后重新排队", "resource", key)
+			return ctrl.Result{RequeueAfter: time.Second * 3}, nil
 		}
 
 		// 处理速率限制错误
 		if strings.Contains(err.Error(), "rate limiter") {
-			logger.Info("API 速率限制，稍后重试", "error", err)
-			return ctrl.Result{RequeueAfter: time.Second * 5}, nil
+			logger.Info("API 速率限制，稍后重试", "error", err, "resource", key)
+			return ctrl.Result{RequeueAfter: time.Second * 10}, nil
 		}
 
 		// 处理上下文取消
 		if errors.Is(err, context.Canceled) || strings.Contains(err.Error(), "context canceled") {
-			logger.Info("上下文已取消，将重新排队", "error", err)
-			return ctrl.Result{Requeue: true}, nil
+			logger.Info("上下文已取消，延迟后重新排队", "error", err, "resource", key)
+			return ctrl.Result{RequeueAfter: time.Second * 5}, nil
 		}
 
 		// 其他可能是临时性的错误
-		logger.Error(err, "更新 EbpfMap 状态失败")
-		return ctrl.Result{RequeueAfter: time.Second * 10}, nil
+		logger.Error(err, "更新 EbpfMap 状态失败", "resource", key)
+		return ctrl.Result{RequeueAfter: time.Second * 15}, nil
 	}
+
+	logger.Info("成功更新状态", "resource", key, "resourceVersion", ebpfMap.ResourceVersion)
 	return ctrl.Result{}, nil
 }
 
