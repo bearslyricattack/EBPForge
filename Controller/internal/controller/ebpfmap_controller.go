@@ -529,7 +529,6 @@ func (r *EbpfMapReconciler) updateStatus(ctx context.Context, ebpfMap *ebpfv1.Eb
 //		return ctrl.Result{RequeueAfter: time.Second * 15}, nil
 //	}
 //
-//	logger.Info("成功更新状态", "resource", key, "resourceVersion", ebpfMap.ResourceVersion)
 //	return ctrl.Result{RequeueAfter: time.Second * 10}, nil
 //}
 
