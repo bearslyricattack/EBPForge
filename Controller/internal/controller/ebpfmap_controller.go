@@ -291,34 +291,186 @@ type EbpfMapReconciler struct {
 //	return ctrl.Result{}, nil
 //}
 
+//func (r *EbpfMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+//	logger := log.FromContext(ctx)
+//
+//	// Retrieve the EbpfMap instance
+//	var ebpfMap ebpfv1.EbpfMap
+//	if err := r.Get(ctx, req.NamespacedName, &ebpfMap); err != nil {
+//		if errors.IsNotFound(err) {
+//			// The requested object does not exist, possibly deleted
+//			logger.Info("EbpfMap resource not found, ignoring since it may have been deleted")
+//			return ctrl.Result{}, nil
+//		}
+//		// Error while retrieving the object - requeue the request
+//		logger.Error(err, "Failed to fetch EbpfMap")
+//		return ctrl.Result{}, err
+//	}
+//
+//	// Construct and call multiple URLs from a list
+//	urls := []string{
+//		"http://192.168.0.53:8082/load",
+//		"http://192.168.10.63:8082/load",
+//		// Add more URLs as needed
+//	}
+//
+//	successCount := 0
+//	totalURLs := len(urls)
+//
+//	for _, baseURL := range urls {
+//		// Construct URL with all required parameters for each base URL
+//		URL := fmt.Sprintf("%s?name=%s&target=%s&type=%s&code=%s&program=%s",
+//			baseURL,
+//			url.QueryEscape(ebpfMap.Spec.Name),
+//			url.QueryEscape(ebpfMap.Spec.Target),
+//			url.QueryEscape(ebpfMap.Spec.Type),
+//			url.QueryEscape(ebpfMap.Spec.Code),
+//			url.QueryEscape(ebpfMap.Spec.Program))
+//
+//		fmt.Println(URL)
+//
+//		// Send HTTP request
+//		resp, err := http.Get(URL)
+//		if err != nil {
+//			logger.Error(err, "Failed to send HTTP request to "+baseURL)
+//			// Continue to next URL
+//			continue
+//		}
+//
+//		// Read response body
+//		body, err := ioutil.ReadAll(resp.Body)
+//		resp.Body.Close() // Close body in the loop
+//
+//		if err != nil {
+//			logger.Error(err, "Failed to read response body from "+baseURL)
+//			continue
+//		}
+//
+//		// Process the response
+//		logger.Info("Received response", "baseURL", baseURL, "response", string(body))
+//
+//		// Count successful requests
+//		if resp.StatusCode == http.StatusOK {
+//			successCount++
+//		}
+//	}
+//	// Update status to indicate the program has been loaded
+//	condition := metav1.Condition{
+//		Type:               "Loaded",
+//		Status:             metav1.ConditionTrue,
+//		LastTransitionTime: metav1.Now(),
+//		Reason:             "CurlSuccess",
+//		Message:            "Successfully loaded eBPF program",
+//	}
+//	meta.SetStatusCondition(&ebpfMap.Status.Conditions, condition)
+//
+//	// URLs for the register endpoint
+//	registerURLs := []string{
+//		"http://192.168.0.53:8080/register",
+//		"http://192.168.10.63:8080/register",
+//		// Add more URLs as needed
+//	}
+//
+//	registerSuccessCount := 0
+//	totalRegisterURLs := len(registerURLs)
+//
+//	// Prepare the JSON payload
+//	registerPayload := map[string]interface{}{
+//		"name":   ebpfMap.Spec.Name,
+//		"help":   ebpfMap.Spec.Help,
+//		"type":   ebpfMap.Spec.PrometheusType,
+//		"labels": []string{"key"},
+//		"path":   "/sys/fs/bpf/" + ebpfMap.Spec.Name + "/" + ebpfMap.Spec.Map,
+//	}
+//
+//	// Convert the payload to JSON
+//	jsonPayload, err := json.Marshal(registerPayload)
+//	if err != nil {
+//		logger.Error(err, "Failed to marshal JSON payload")
+//	}
+//
+//	for _, registerURL := range registerURLs {
+//		// Create a new POST request
+//		req, err := http.NewRequest("POST", registerURL, bytes.NewBuffer(jsonPayload))
+//		if err != nil {
+//			logger.Error(err, "Failed to create HTTP request for "+registerURL)
+//			continue
+//		}
+//
+//		// Set headers
+//		req.Header.Set("Content-Type", "application/json")
+//
+//		// Send the request
+//		client := &http.Client{}
+//		resp, err := client.Do(req)
+//		if err != nil {
+//			logger.Error(err, "Failed to send HTTP request to "+registerURL)
+//			continue
+//		}
+//
+//		// Read response body
+//		body, err := ioutil.ReadAll(resp.Body)
+//		resp.Body.Close() // Close body in the loop
+//
+//		if err != nil {
+//			logger.Error(err, "Failed to read response body from "+registerURL)
+//			continue
+//		}
+//
+//		// Process the response
+//		logger.Info("Received register response", "registerURL", registerURL, "response", string(body))
+//
+//		// Count successful requests
+//		if resp.StatusCode == http.StatusOK {
+//			registerSuccessCount++
+//		}
+//	}
+//	logger.Info("Register requests completed", "successful", registerSuccessCount, "total", totalRegisterURLs)
+//	if err := r.Status().Update(ctx, &ebpfMap); err != nil {
+//		logger.Error(err, "Failed to update EbpfMap status")
+//		return ctrl.Result{}, err
+//	}
+//	// Return result after processing all URLs
+//	if successCount > 0 {
+//		logger.Info("Successfully processed requests", "successCount", successCount, "totalURLs", totalURLs)
+//		return ctrl.Result{}, nil
+//	} else {
+//		logger.Error(nil, "Failed to process any requests successfully")
+//		return ctrl.Result{Requeue: true}, fmt.Errorf("failed to process any requests successfully")
+//	}
+//}
+
 func (r *EbpfMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
+	logger := log.FromContext(ctx).WithValues("ebpfMap", req.NamespacedName.String())
+	logger.Info("Reconciling EbpfMap")
 
 	// Retrieve the EbpfMap instance
 	var ebpfMap ebpfv1.EbpfMap
 	if err := r.Get(ctx, req.NamespacedName, &ebpfMap); err != nil {
 		if errors.IsNotFound(err) {
-			// The requested object does not exist, possibly deleted
-			logger.Info("EbpfMap resource not found, ignoring since it may have been deleted")
+			logger.Info("Resource not found, may have been deleted")
 			return ctrl.Result{}, nil
 		}
-		// Error while retrieving the object - requeue the request
-		logger.Error(err, "Failed to fetch EbpfMap")
+		logger.Error(err, "Failed to fetch resource")
 		return ctrl.Result{}, err
 	}
 
 	// Construct and call multiple URLs from a list
-	urls := []string{
+	loadURLs := []string{
 		"http://192.168.0.53:8082/load",
 		"http://192.168.10.63:8082/load",
-		// Add more URLs as needed
 	}
 
-	successCount := 0
-	totalURLs := len(urls)
+	logger.Info("Starting eBPF program loading", "targets", len(loadURLs))
 
-	for _, baseURL := range urls {
-		// Construct URL with all required parameters for each base URL
+	successCount := 0
+	totalURLs := len(loadURLs)
+
+	for i, baseURL := range loadURLs {
+		host := extractHostFromURL(baseURL)
+		logger := logger.WithValues("host", host, "index", i+1, "total", totalURLs)
+
+		// Construct URL with parameters (not logging full URL for cleanliness)
 		URL := fmt.Sprintf("%s?name=%s&target=%s&type=%s&code=%s&program=%s",
 			baseURL,
 			url.QueryEscape(ebpfMap.Spec.Name),
@@ -327,33 +479,39 @@ func (r *EbpfMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			url.QueryEscape(ebpfMap.Spec.Code),
 			url.QueryEscape(ebpfMap.Spec.Program))
 
-		fmt.Println(URL)
-
 		// Send HTTP request
+		logger.V(1).Info("Sending load request")
 		resp, err := http.Get(URL)
 		if err != nil {
-			logger.Error(err, "Failed to send HTTP request to "+baseURL)
-			// Continue to next URL
+			logger.Error(err, "Failed to send load request")
 			continue
 		}
 
 		// Read response body
 		body, err := ioutil.ReadAll(resp.Body)
-		resp.Body.Close() // Close body in the loop
+		resp.Body.Close()
 
 		if err != nil {
-			logger.Error(err, "Failed to read response body from "+baseURL)
+			logger.Error(err, "Failed to read response")
 			continue
 		}
 
-		// Process the response
-		logger.Info("Received response", "baseURL", baseURL, "response", string(body))
+		// Process the response (only log summary, not full body)
+		responseStatus := resp.StatusCode
+		responseLength := len(body)
+		logger.Info("Received load response",
+			"status", responseStatus,
+			"bodySize", responseLength)
 
 		// Count successful requests
 		if resp.StatusCode == http.StatusOK {
 			successCount++
+			logger.Info("Load successful")
+		} else {
+			logger.Info("Load failed", "statusCode", resp.StatusCode)
 		}
 	}
+
 	// Update status to indicate the program has been loaded
 	condition := metav1.Condition{
 		Type:               "Loaded",
@@ -368,8 +526,9 @@ func (r *EbpfMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	registerURLs := []string{
 		"http://192.168.0.53:8080/register",
 		"http://192.168.10.63:8080/register",
-		// Add more URLs as needed
 	}
+
+	logger.Info("Starting metric registration", "targets", len(registerURLs))
 
 	registerSuccessCount := 0
 	totalRegisterURLs := len(registerURLs)
@@ -389,11 +548,16 @@ func (r *EbpfMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		logger.Error(err, "Failed to marshal JSON payload")
 	}
 
-	for _, registerURL := range registerURLs {
+	for i, registerURL := range registerURLs {
+		host := extractHostFromURL(registerURL)
+		logger := logger.WithValues("host", host, "index", i+1, "total", totalRegisterURLs)
+
+		logger.V(1).Info("Sending register request")
+
 		// Create a new POST request
 		req, err := http.NewRequest("POST", registerURL, bytes.NewBuffer(jsonPayload))
 		if err != nil {
-			logger.Error(err, "Failed to create HTTP request for "+registerURL)
+			logger.Error(err, "Failed to create register request")
 			continue
 		}
 
@@ -404,40 +568,61 @@ func (r *EbpfMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		client := &http.Client{}
 		resp, err := client.Do(req)
 		if err != nil {
-			logger.Error(err, "Failed to send HTTP request to "+registerURL)
+			logger.Error(err, "Failed to send register request")
 			continue
 		}
 
 		// Read response body
 		body, err := ioutil.ReadAll(resp.Body)
-		resp.Body.Close() // Close body in the loop
+		resp.Body.Close()
 
 		if err != nil {
-			logger.Error(err, "Failed to read response body from "+registerURL)
+			logger.Error(err, "Failed to read register response")
 			continue
 		}
 
-		// Process the response
-		logger.Info("Received register response", "registerURL", registerURL, "response", string(body))
+		// Process the response (only log summary, not full body)
+		responseStatus := resp.StatusCode
+		responseLength := len(body)
+		logger.Info("Received register response",
+			"status", responseStatus,
+			"bodySize", responseLength)
 
 		// Count successful requests
 		if resp.StatusCode == http.StatusOK {
 			registerSuccessCount++
+			logger.Info("Registration successful")
+		} else {
+			logger.Info("Registration failed", "statusCode", resp.StatusCode)
 		}
 	}
-	logger.Info("Register requests completed", "successful", registerSuccessCount, "total", totalRegisterURLs)
+
+	logger.Info("Reconciliation summary",
+		"loadSuccess", fmt.Sprintf("%d/%d", successCount, totalURLs),
+		"registerSuccess", fmt.Sprintf("%d/%d", registerSuccessCount, totalRegisterURLs))
+
 	if err := r.Status().Update(ctx, &ebpfMap); err != nil {
-		logger.Error(err, "Failed to update EbpfMap status")
+		logger.Error(err, "Failed to update status")
 		return ctrl.Result{}, err
 	}
+
 	// Return result after processing all URLs
 	if successCount > 0 {
-		logger.Info("Successfully processed requests", "successCount", successCount, "totalURLs", totalURLs)
+		logger.Info("Reconciliation completed successfully")
 		return ctrl.Result{}, nil
 	} else {
-		logger.Error(nil, "Failed to process any requests successfully")
-		return ctrl.Result{Requeue: true}, fmt.Errorf("failed to process any requests successfully")
+		logger.Error(nil, "All load requests failed")
+		return ctrl.Result{Requeue: true}, fmt.Errorf("failed to process any load requests successfully")
 	}
+}
+
+// Helper function to extract host from URL for cleaner logging
+func extractHostFromURL(urlStr string) string {
+	parsedURL, err := url.Parse(urlStr)
+	if err != nil {
+		return urlStr
+	}
+	return parsedURL.Host
 }
 
 // 存储最近处理的资源版本和重试次数
