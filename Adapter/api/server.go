@@ -1,8 +1,8 @@
 package api
 
 import (
-	"awesomeProject2/internal/ebpf"
-	"awesomeProject2/prometheus"
+	"adapter/internal/ebpf"
+	"adapter/prometheus"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -12,7 +12,7 @@ import (
 type RegisterRequest struct {
 	Name   string   `json:"name"`
 	Help   string   `json:"help"`
-	Type   string   `json:"type"` // "counter" 或 "gauge"
+	Type   string   `json:"type"` // "counter" or "gauge"
 	Labels []string `json:"labels"`
 	Path   string   `json:"path"`
 }
@@ -41,7 +41,7 @@ func StartServer() {
 		w.Write([]byte("registered"))
 	})
 
-	// 查询所有已注册的eBPF程序
+	// Query all registered eBPF programs
 	http.HandleFunc("/programs", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			http.Error(w, "Only GET allowed", http.StatusMethodNotAllowed)
@@ -56,13 +56,13 @@ func StartServer() {
 		}
 	})
 
-	// 查询特定eBPF程序
+	// Query specific eBPF program
 	http.HandleFunc("/program/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			http.Error(w, "Only GET allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		// 从URL中提取程序名称
+		// Extract program name from URL
 		programName := strings.TrimPrefix(r.URL.Path, "/program/")
 		if programName == "" {
 			http.Error(w, "Program name is required", http.StatusBadRequest)
@@ -76,7 +76,7 @@ func StartServer() {
 		}
 	})
 
-	// 删除eBPF程序
+	// Delete eBPF program
 	http.HandleFunc("/unregister", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodDelete {
 			http.Error(w, "Only DELETE allowed", http.StatusMethodNotAllowed)
@@ -95,13 +95,13 @@ func StartServer() {
 			http.Error(w, "Program name is required", http.StatusBadRequest)
 			return
 		}
-		// 移除eBPF程序
+		// Remove eBPF program
 		ebpf.RemoveProgram(req.Name)
-		// 移除相关的Prometheus指标
+		// Remove related Prometheus metrics
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("unregistered"))
 	})
 
-	fmt.Println("API server started on :8080")
+	fmt.Println("API Loader started on :8080")
 	http.ListenAndServe(":8080", nil)
 }

@@ -203,13 +203,13 @@ var _ = Describe("Manager", Ordered, func() {
 			}
 			Eventually(verifyMetricsEndpointReady).Should(Succeed())
 
-			By("verifying that the controller manager is serving the metrics server")
+			By("verifying that the controller manager is serving the metrics Loader")
 			verifyMetricsServerStarted := func(g Gomega) {
 				cmd := exec.Command("kubectl", "logs", controllerPodName, "-n", namespace)
 				output, err := utils.Run(cmd)
 				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(output).To(ContainSubstring("controller-runtime.metrics\tServing metrics server"),
-					"Metrics server not yet started")
+				g.Expect(output).To(ContainSubstring("controller-runtime.metrics\tServing metrics Loader"),
+					"Metrics Loader not yet started")
 			}
 			Eventually(verifyMetricsServerStarted).Should(Succeed())
 

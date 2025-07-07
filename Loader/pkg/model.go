@@ -1,26 +1,13 @@
 package pkg
 
-// AttachType 挂载类型定义
+// AttachType defines the type of eBPF program attachment
 type AttachType string
 
-const (
-	AttachKprobe     AttachType = "kprobe"
-	AttachKretprobe  AttachType = "kretprobe"
-	AttachTracepoint AttachType = "tracepoint"
-	AttachUprobe     AttachType = "uprobe"
-	AttachUretprobe  AttachType = "uretprobe"
-	AttachXDP        AttachType = "xdp"
-	AttachTC         AttachType = "tc"
-	AttachSockFilter AttachType = "sockfilter"
-	AttachCgroupSock AttachType = "cgroup_sock"
-	AttachLSM        AttachType = "lsm"
-)
-
-// AttachArgs 挂载参数结构体
+// AttachArgs contains parameters for eBPF program attachment
 type AttachArgs struct {
-	Name     string //名称
-	Ebpftype string //类型
-	Target   string //挂载点
-	Code     string //代码
-	Program  string
+	Name     string // Program name
+	Ebpftype string // Attachment type
+	Target   string // Attachment target
+	Code     string // Program code
+	Program  string // Program section name
 }

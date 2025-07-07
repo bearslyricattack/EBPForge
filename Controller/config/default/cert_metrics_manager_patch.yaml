@@ -1,25 +1,25 @@
-# This patch adds the args, volumes, and ports to allow the manager to use the metrics-server certs.
+# This patch adds the args, volumes, and ports to allow the manager to use the metrics-Loader certs.
 
-# Add the volumeMount for the metrics-server certs
+# Add the volumeMount for the metrics-Loader certs
 - op: add
   path: /spec/template/spec/containers/0/volumeMounts/-
   value:
-    mountPath: /tmp/k8s-metrics-server/metrics-certs
+    mountPath: /tmp/k8s-metrics-Loader/metrics-certs
     name: metrics-certs
     readOnly: true
 
-# Add the --metrics-cert-path argument for the metrics server
+# Add the --metrics-cert-path argument for the metrics Loader
 - op: add
   path: /spec/template/spec/containers/0/args/-
-  value: --metrics-cert-path=/tmp/k8s-metrics-server/metrics-certs
+  value: --metrics-cert-path=/tmp/k8s-metrics-Loader/metrics-certs
 
-# Add the metrics-server certs volume configuration
+# Add the metrics-Loader certs volume configuration
 - op: add
   path: /spec/template/spec/volumes/-
   value:
     name: metrics-certs
     secret:
-      secretName: metrics-server-cert
+      secretName: metrics-Loader-cert
       optional: false
       items:
         - key: ca.crt

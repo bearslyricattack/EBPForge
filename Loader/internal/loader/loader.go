@@ -3,18 +3,16 @@ package loader
 import (
 	"errors"
 	"fmt"
-	"github.com/bearslyricattack/EBPForge/pkg"
-	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/link"
-	"github.com/cilium/ebpf/rlimit"
 	"net"
 	"os"
 	"path/filepath"
 	"strings"
-)
 
-// AttachType 挂载类型定义
-type AttachType string
+	"github.com/bearslyricattack/EBPForge/pkg"
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/link"
+	"github.com/cilium/ebpf/rlimit"
+)
 
 const (
 	AttachKprobe     string = "kprobe"
@@ -29,33 +27,30 @@ const (
 	AttachLSM        string = "lsm"
 )
 
+// LoadAndAttachBPF loads an eBPF object file and attaches it according to the specified arguments
 func LoadAndAttachBPF(bpfObjectPath string, args pkg.AttachArgs) (link.Link, *ebpf.Collection, error) {
-	// 0. 解除 MEMLOCK 限制
 	if err := rlimit.RemoveMemlock(); err != nil {
-		return nil, nil, fmt.Errorf("解除MEMLOCK限制失败: %w", err)
+		return nil, nil, fmt.Errorf("failed to remove MEMLOCK limit: %w", err)
 	}
-	// 1. 加载 eBPF 对象文件
+
 	spec, err := ebpf.LoadCollectionSpec(bpfObjectPath)
 	if err != nil {
-		return nil, nil, fmt.Errorf("加载eBPF对象文件失败: %w", err)
+		return nil, nil, fmt.Errorf("failed to load eBPF object file: %w", err)
 	}
 
-	// 2. 加载 collection
 	coll, err := ebpf.NewCollection(spec)
 	if err != nil {
-		return nil, nil, fmt.Errorf("创建eBPF集合失败: %w", err)
+		return nil, nil, fmt.Errorf("failed to create eBPF collection: %w", err)
 	}
 
-	// 3. 查找程序
 	prog, ok := coll.Programs[args.Program]
 	if !ok {
-		// 输出可用程序名
 		availableProgs := make([]string, 0, len(coll.Programs))
 		for name := range coll.Programs {
 			availableProgs = append(availableProgs, name)
 		}
 		coll.Close()
-		return nil, nil, fmt.Errorf("未找到程序 '%s'，可用: %v", args.Name, availableProgs)
+		return nil, nil, fmt.Errorf("program '%s' not found, available: %v", args.Name, availableProgs)
 	}
 
 	var lnk link.Link
@@ -67,27 +62,25 @@ func LoadAndAttachBPF(bpfObjectPath string, args pkg.AttachArgs) (link.Link, *eb
 	case AttachKretprobe:
 		lnk, err = link.Kretprobe(args.Target, prog, nil)
 	case AttachTracepoint:
-		// Target 格式: "subsys:event"
 		ss, ev, ok := strings.Cut(args.Target, ":")
 		if !ok {
 			coll.Close()
-			return nil, nil, errors.New("tracepoint Target 格式应为 'subsys:event'")
+			return nil, nil, errors.New("tracepoint target format should be 'subsys:event'")
 		}
 		lnk, err = link.Tracepoint(ss, ev, prog, nil)
 	case AttachXDP:
 		iface, err2 := netInterfaceByName(args.Target)
 		if err2 != nil {
 			coll.Close()
-			return nil, nil, fmt.Errorf("获取网卡失败: %w", err2)
+			return nil, nil, fmt.Errorf("failed to get network interface: %w", err2)
 		}
 		lnk, err = link.AttachXDP(link.XDPOptions{
 			Program:   prog,
 			Interface: iface.Index,
 		})
 	case AttachSockFilter:
-		// 这里需要一个 socket fd，通常用于 raw socket 过滤，略作示意
 		coll.Close()
-		return nil, nil, errors.New("SockFilter类型需传入socket fd, 这里略过")
+		return nil, nil, errors.New("SockFilter type requires a socket fd, skipped here")
 	case AttachCgroupSock:
 		lnk, err = link.AttachCgroup(link.CgroupOptions{
 			Path:    args.Target,
@@ -96,55 +89,48 @@ func LoadAndAttachBPF(bpfObjectPath string, args pkg.AttachArgs) (link.Link, *eb
 		})
 	default:
 		coll.Close()
-		return nil, nil, fmt.Errorf("不支持的Attach类型: %s", args.Ebpftype)
+		return nil, nil, fmt.Errorf("unsupported attach type: %s", args.Ebpftype)
 	}
 
 	if err != nil {
 		coll.Close()
-		return nil, nil, fmt.Errorf("挂载失败: %w", err)
+		return nil, nil, fmt.Errorf("attachment failed: %w", err)
 	}
 
-	// 确定固定路径
 	bpfFSPath := "/sys/fs/bpf"
-	// 确保基础目录存在
 	if err := os.MkdirAll(bpfFSPath, 0755); err != nil {
 		lnk.Close()
 		coll.Close()
-		return nil, nil, fmt.Errorf("创建BPF文件系统路径失败: %w", err)
+		return nil, nil, fmt.Errorf("failed to create BPF filesystem path: %w", err)
 	}
 
-	// 创建程序专用目录
 	progDir := filepath.Join(bpfFSPath, args.Name)
 	if err := os.MkdirAll(progDir, 0755); err != nil {
 		lnk.Close()
 		coll.Close()
-		return nil, nil, fmt.Errorf("创建程序目录失败: %w", err)
+		return nil, nil, fmt.Errorf("failed to create program directory: %w", err)
 	}
 
-	// 固定每个map
 	for mapName, m := range coll.Maps {
 		mapPath := filepath.Join(progDir, mapName)
-		// 如果已存在，先移除
 		if _, err := os.Stat(mapPath); err == nil {
 			if err := os.Remove(mapPath); err != nil {
 				lnk.Close()
 				coll.Close()
-				return nil, nil, fmt.Errorf("移除已存在的map '%s'失败: %w", mapName, err)
+				return nil, nil, fmt.Errorf("failed to remove existing map '%s': %w", mapName, err)
 			}
 		}
 
-		// 固定map
 		if err := m.Pin(mapPath); err != nil {
 			lnk.Close()
 			coll.Close()
-			return nil, nil, fmt.Errorf("固定map '%s'失败: %w", mapName, err)
+			return nil, nil, fmt.Errorf("failed to pin map '%s': %w", mapName, err)
 		}
-		fmt.Printf("Map '%s' 已固定到: %s\n", mapName, mapPath)
+		fmt.Printf("Map '%s' pinned to: %s\n", mapName, mapPath)
 	}
 	return lnk, coll, nil
 }
 
-// 获取网卡信息
 func netInterfaceByName(name string) (*net.Interface, error) {
 	iface, err := net.InterfaceByName(name)
 	if err != nil {

@@ -5,6 +5,7 @@ import (
 	"github.com/bearslyricattack/EBPForge/internal/loader"
 	"github.com/bearslyricattack/EBPForge/pkg"
 	"log"
+	"os"
 
 	"github.com/bearslyricattack/EBPForge/internal/compiler"
 	"github.com/cilium/ebpf"
@@ -25,7 +26,7 @@ const (
 	AttachLSM        AttachType = "lsm"
 )
 
-// AttachType 挂载类型定义
+// AttachType defines the type of eBPF program attachment
 type AttachType string
 
 var (
@@ -40,16 +41,16 @@ func loadHandler(c *gin.Context) {
 	code := c.Query("code")
 	program := c.Query("program")
 	fmt.Println("name:", name, "target:", target, "type:", ebpftype, "code:", code, "program:", program)
-	// 编译
+	// Compile
 	path, err := compiler.CompileFromCode(code, name)
-	fmt.Println("编译成功！当前的文件位置是path:", path)
+	fmt.Println("Compilation successful! Current file location is path:", path)
 	if err != nil {
 		c.JSON(500, gin.H{
-			"error": fmt.Sprintf("编译失败: %v", err),
+			"error": fmt.Sprintf("Compilation failed: %v", err),
 		})
 		return
 	}
-	//挂载
+	// Attach
 	var args pkg.AttachArgs
 	args.Name = name
 	args.Target = target
@@ -59,43 +60,47 @@ func loadHandler(c *gin.Context) {
 	_, collection, err = loader.LoadAndAttachBPF(path, args)
 	if err != nil {
 		c.JSON(500, gin.H{
-			"error": fmt.Sprintf("加载 eBPF 程序失败，程序类型%s: %v", ebpftype, err),
+			"error": fmt.Sprintf("Failed to load eBPF program, program type %s: %v", ebpftype, err),
 		})
 		return
 	}
 	c.JSON(200, gin.H{
 		"status":  "success",
-		"message": fmt.Sprintf("程序已加载并挂载到 %s", path),
+		"message": fmt.Sprintf("Program loaded and attached to %s", path),
 	})
 }
 
-// 查询所有加载的eBPF程序状态
+// Query the status of all loaded eBPF programs
 func loadStatusHandler(c *gin.Context) {
-	//调用bpf tool 返回
-	// 返回所有加载的程序
+	// Call bpf tool and return
+	// Return all loaded programs
 	//c.JSON(200, )
 }
 
-// 卸载eBPF程序
+// Unload eBPF program
 func unloadHandler(c *gin.Context) {
 	name := c.Query("name")
 	if name == "" {
 		c.JSON(400, gin.H{
-			"error": "必须提供程序名称",
+			"error": "Program name must be provided",
 		})
 		return
 	}
-	//调用bpf tool 返回
+	// Call bpf tool and return
 	c.JSON(200, gin.H{
 		"status":  "success",
-		"message": fmt.Sprintf("程序 %s 已成功卸载", name),
+		"message": fmt.Sprintf("Program %s has been successfully unloaded", name),
 	})
 }
 
 func main() {
+	port := ":8082"
+	if envPort := os.Getenv("PORT"); envPort != "" {
+		port = ":" + envPort
+	}
 	r := gin.Default()
 	r.GET("/load", loadHandler)
-	fmt.Println("HTTP服务器正在启动，监听端口 :8082")
+	fmt.Printf("HTTP server starting, listening on port %s\n", port)
 	defer func() {
 		if kprobeLink != nil {
 			kprobeLink.Close()
@@ -104,7 +109,7 @@ func main() {
 			collection.Close()
 		}
 	}()
-	if err := r.Run(":8082"); err != nil {
-		log.Fatalf("启动服务器失败: %v", err)
+	if err := r.Run(port); err != nil {
+		log.Fatalf("Failed to start server: %v", err)
 	}
 }

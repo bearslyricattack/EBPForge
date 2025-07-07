@@ -1,10 +1,10 @@
 package timer
 
 import (
-	"awesomeProject2/internal/bpftool"
-	"awesomeProject2/internal/decode"
-	"awesomeProject2/internal/ebpf"
-	"awesomeProject2/prometheus"
+	"adapter/internal/bpftool"
+	"adapter/internal/decode"
+	"adapter/internal/ebpf"
+	"adapter/prometheus"
 	"fmt"
 	"time"
 )
@@ -29,11 +29,7 @@ func ReadAllEBPFPrograms() {
 			fmt.Printf("Failed to read map for %s: %v\n", name, err)
 			continue
 		}
-		//fmt.Println("接收到返回的结果")
-		//fmt.Println(output)
 		parsed := decode.ParseBpftoolMapOutput(output)
-		//fmt.Println("解析的结果")
-		//fmt.Println(parsed)
 		for label, value := range parsed {
 			switch prog.Type {
 			case "Counter":

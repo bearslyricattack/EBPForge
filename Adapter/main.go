@@ -1,9 +1,9 @@
 package main
 
 import (
-	"awesomeProject2/api"
-	"awesomeProject2/prometheus"
-	"awesomeProject2/timer"
+	"adapter/api"
+	"adapter/prometheus"
+	"adapter/timer"
 	"flag"
 	"fmt"
 	"os"
@@ -17,21 +17,13 @@ func main() {
 	flag.Parse()
 	prometheus.Node = *nodeFlag
 	flag.Parse()
-
 	tickerInterval := 10 * time.Second
 	timer.StartScheduler(tickerInterval)
-	fmt.Println("Scheduler started.")
-
-	// Start Prometheus server in a goroutine
-	go prometheus.StartPrometheusServer()
-
-	// 2. 启动 API Server（支持 /register 注册新指标）
+	go prometheus.StartPrometheusServer("8080")
 	go func() {
 		fmt.Println("API Server starting on :8080...")
 		api.StartServer()
 	}()
-
-	// 3. 监听退出信号（Ctrl+C 或 kill）
 	waitForShutdown()
 }
 

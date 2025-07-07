@@ -1,4 +1,4 @@
-module awesomeProject2
+module adapter
 
 go 1.23.6
 
